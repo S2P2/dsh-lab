@@ -1,0 +1,9 @@
+{
+  "name": "@s2p2/dsh-grilling-card",
+  "version": "0.0.1",
+  "description": "Rich grilling/interview question card for DSH: recommended answers, one-click accept, round-at-a-time, frontier meter. MCP-elicitation-compatible.",
+  "main": "src/index.js",
+  "files": ["src", "cordis.patch.yml"],
+  "keywords": ["dsh", "deepseek-harness", "plugin", "grilling", "elicitation"],
+  "license": "MIT"
+}

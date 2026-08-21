@@ -1,0 +1,13 @@
+{
+  "name": "dsh-lab",
+  "private": true,
+  "description": "DeepSeek Harness plugin lab: workflow extensions, grilling UI, quota widgets — things skills alone can't do.",
+  "scripts": {
+    "build": "pnpm -r --filter './packages/*' run build",
+    "test": "pnpm -r --filter './packages/*' run test",
+    "changeset": "changeset"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.27.0"
+  }
+}
