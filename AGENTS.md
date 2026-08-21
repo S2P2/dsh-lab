@@ -43,3 +43,31 @@ packages/<dsh-*>   one npm package per plugin
 shared/            code shared across plugins
 .dsh/              dogfooding: skills + profile bits for working on this repo
 ```
+
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked as GitHub issues in this repo, via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five canonical triage roles map to same-named GitHub labels. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+## Agent conventions
+
+### AI-assisted content
+
+Mark issues, PR descriptions, comments, and commit messages drafted by an AI agent with S2P2's AI-assisted markers. Do not mark source files or docs. See `docs/agents/ai-assisted-content.md`.
+
+### Post-implementation verification
+
+After implementation tasks, tell the human what manual testing is worth doing—only what automated tests cannot cover; otherwise say "skip". See `docs/agents/post-implementation-verification.md`.
+
+### GitHub issue conventions
+
+Chart and refresh Wayfinder maps as clickable Mermaid dependency graphs; use native sub-issues and S2P2's stable label palette. See `docs/agents/github-issue-conventions.md`.
