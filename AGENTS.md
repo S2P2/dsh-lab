@@ -15,7 +15,7 @@ Skills shape agent behavior through text; they can't register tools, render UI, 
 | [`packages/dsh-grilling-card`](packages/dsh-grilling-card) | 🌱 scaffold | Rich grilling/interview question UI: recommended answers, one-click accept, round-at-a-time, frontier meter. Designed MCP-elicitation-compatible. |
 | `packages/dsh-wayfinder-map` | planned | Decision-ticket map with blocking edges (wayfinder visualization). |
 | `packages/dsh-frontier` | planned | Deterministic implement-spec orchestrator: ticket graph, frontier computation, approval-gated destructive ops. |
-| `packages/dsh-quota-bar` | 🌱 dogfooding | GLM Coding Plan quota card: 5h/weekly/tools windows + reset times in the sidebar footer, host-side fetch over a loopback route. Dock-bar form retired after dogfooding (too distracting); prototype on `proto/quota-bar-slots`. |
+| `packages/dsh-quota-bar` | 🌱 dogfooding | GLM Coding Plan quota card: 5h/weekly/tools windows + reset times in the sidebar footer, host-side fetch over a loopback route. Dock-bar form retired after dogfooding (too distracting); prototype on `prototype/quota-bar-slots`. |
 
 ## Install (once packages publish)
 
