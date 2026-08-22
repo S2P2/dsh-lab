@@ -9,8 +9,12 @@
  *
  * Credential resolution (never leaves this process; the route response carries
  * only percentages and reset times):
- *   1. settings document: llm-pi-ai.providers.zai.{apiKeyEnv, baseUrl}
- *   2. env fallback: ZAI_API_KEY / ZAI_BASE_URL
+ *   1. credentials service: resolve(apiKeyEnv) — layers process env over the
+ *      managed store over .env (settings carry REFERENCES, not secrets)
+ *   2. direct env fallback for hosts without the service
+ * The zai provider config (apiKeyEnv ref name + baseUrl) comes from the
+ * settings document: llm-pi-ai.providers.zai.
+ *
  * Upstream: GET {base}/api/monitor/usage/quota/limit with the raw API key
  * (no Bearer prefix) — ported from pi-config's proven statusline fetcher.
  */
@@ -29,6 +33,7 @@ const state = {
   stale: true,
   error: null,
 };
+let refreshing = false;
 
 /** Resolve the zai provider config from the settings service, defensively. */
 function providerConfig(ctx) {
@@ -37,7 +42,7 @@ function providerConfig(ctx) {
     const provider = doc?.["llm-pi-ai"]?.providers?.zai;
     if (provider && typeof provider === "object") return provider;
   } catch {
-    /* settings service not present on this host */
+    /* settings service not present or not started */
   }
   return {};
 }
@@ -47,11 +52,10 @@ async function resolveTarget(ctx) {
   const apiKeyEnv = typeof provider.apiKeyEnv === "string" ? provider.apiKeyEnv : "ZAI_API_KEY";
   let apiKey = null;
 
-  // Credential service doctrine: settings carry REFERENCES (apiKeyEnv names a
-  // ref), values live behind ctx.credentials.resolve() — layered process env
-  // over the managed store over .env files. Resolved per fetch, never cached.
+  // Resolved per fetch, never cached (credential-service doctrine), so a
+  // rotated key reaches the very next refresh without a restart.
   try {
-    const hit = await ctx.get("credentials")?.resolve(apiKeyEnv);
+    const hit = await ctx.credentials?.resolve(apiKeyEnv);
     if (hit && typeof hit.value === "string" && hit.value) apiKey = hit.value;
   } catch {
     /* credentials service not present on this host */
@@ -68,13 +72,15 @@ async function resolveTarget(ctx) {
 }
 
 async function refresh(ctx) {
-  const { apiKey, base, apiKeyEnv } = await resolveTarget(ctx);
-  if (!apiKey) {
-    state.stale = true;
-    state.error = `no API key behind ref ${apiKeyEnv} (credentials service or environment)`;
-    return;
-  }
+  if (refreshing) return;
+  refreshing = true;
   try {
+    const { apiKey, base, apiKeyEnv } = await resolveTarget(ctx);
+    if (!apiKey) {
+      state.stale = true;
+      state.error = `no API key behind ref ${apiKeyEnv} (credentials service or environment)`;
+      return;
+    }
     const resp = await fetch(base + UPSTREAM_PATH, {
       headers: { Authorization: apiKey, "Accept-Language": "en-US" },
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
@@ -89,14 +95,23 @@ async function refresh(ctx) {
   } catch (e) {
     state.stale = true;
     state.error = String((e && e.message) || e);
+  } finally {
+    refreshing = false;
   }
 }
 
 export function apply(ctx, _config) {
-  refresh(ctx);
-  const timer = setInterval(() => refresh(ctx), REFRESH_MS);
+  // Wait for both services before the first fetch: an eager refresh before the
+  // credentials provider has started resolves nothing and poisons the cache
+  // with a key-missing error until the next interval tick.
+  ctx.inject(["webServer", "credentials"], (host) => {
+    refresh(host);
 
-  ctx.inject(["webServer"], (host) => {
+    host.effect(() => {
+      const timer = setInterval(() => refresh(host), REFRESH_MS);
+      return () => clearInterval(timer);
+    }, "dsh-quota-bar: poll timer");
+
     host.effect(
       () =>
         host.webServer.register({
@@ -108,6 +123,10 @@ export function apply(ctx, _config) {
               response.end();
               return;
             }
+            // Nudge a re-fetch when a client polls a stale/error snapshot
+            // (e.g. key was just stored or the service started late); the
+            // current response still serves the last-known state.
+            if (state.stale) refresh(host);
             const body = JSON.stringify({
               reading: state.reading,
               fetchedAt: state.fetchedAt || null,
@@ -124,6 +143,4 @@ export function apply(ctx, _config) {
       "dsh-quota-bar: reading route"
     );
   });
-
-  ctx.on("dispose", () => clearInterval(timer));
 }
