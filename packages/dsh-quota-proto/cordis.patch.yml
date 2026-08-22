@@ -1,4 +1,2 @@
 - id: dsh-quota-proto
   name: '@s2p2/dsh-quota-proto'
-  inject:
-    - '@deepseek-ai/dsh-client-runtime'
