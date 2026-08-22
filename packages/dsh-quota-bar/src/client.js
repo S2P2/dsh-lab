@@ -126,7 +126,7 @@ window.__ModuleLoader__.load({
         if (!d) return null;
         return h(
           "span",
-          { style: { marginRight: "12px", whiteSpace: "nowrap" } },
+          { style: { whiteSpace: "nowrap" } },
           h("span", { style: { color: DIM, fontSize: "10px", marginRight: "4px" } }, w.label),
           d.pct === null ? null : h(Bar, { pct: d.pct }),
           d.pct === null
@@ -152,25 +152,43 @@ window.__ModuleLoader__.load({
               )
         );
       };
+      // GoalBar's dock pattern: wrapper inset to the composer card's bounds,
+      // then an opaque floating card (—dsw-specific-tip surface) centered in
+      // it. A full-width strip with bg-base left a translucent seam over
+      // scrolled text; a floating card has no seam.
       return h(
         "div",
         {
-          title: s.error ? "last error: " + s.error : undefined,
           style: {
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "2px 10px",
-            borderTop: "1px solid " + BORDER,
-            background: BG,
-            fontFamily: MONO,
-            userSelect: "none",
-            opacity: dim,
-            transition: "opacity .3s",
+            boxSizing: "border-box",
+            width:
+              "calc(100% - var(--dsh-composer-side-clearance) - var(--dsh-composer-side-clearance) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset))",
+            margin: "0 auto",
           },
         },
-        h("span", { style: { color: DIM, fontSize: "10px", marginRight: "10px" } }, "\u26A1 GLM"),
-        WINDOWS.map((w) => seg(w))
+        h(
+          "div",
+          {
+            title: s.error ? "last error: " + s.error : undefined,
+            style: {
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "12px",
+              margin: "0 auto",
+              padding: "3px 14px",
+              border: "1px solid " + BORDER,
+              borderRadius: "10px",
+              background: "var(--dsw-specific-tip, " + BG + ")",
+              fontFamily: MONO,
+              userSelect: "none",
+              opacity: dim,
+              transition: "opacity .3s",
+            },
+          },
+          h("span", { style: { color: DIM, fontSize: "10px", marginRight: "2px" } }, "\u26A1 GLM"),
+          WINDOWS.map((w) => seg(w))
+        )
       );
     };
 
