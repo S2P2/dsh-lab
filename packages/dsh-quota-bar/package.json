@@ -1,0 +1,28 @@
+{
+  "name": "@s2p2/dsh-quota-bar",
+  "version": "0.1.0",
+  "private": true,
+  "description": "GLM Coding Plan quota bar for DSH web: 5h / weekly / tools windows with reset times, above the composer.",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./client": "./src/client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime"
+      ],
+      "platform": "web"
+    }
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "files": ["src", "test", "cordis.patch.yml"]
+}
