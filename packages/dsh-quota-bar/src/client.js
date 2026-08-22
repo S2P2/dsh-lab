@@ -69,12 +69,19 @@ window.__ModuleLoader__.load({
 
     /* ---------------- dock bar ---------------- */
 
-    const DIM = "#8b949e";
-    const TRACK = "#30363d";
-    const BORDER = "#21262d";
-    const BG = "#161b22";
+    // Theme-native via DSW design-token aliases (what GoalBar itself uses),
+    // each with a literal fallback for themes that lack the variable.
+    const DIM = "var(--dsw-alias-label-tertiary, #8b949e)";
+    const TRACK = "var(--dsw-alias-border-l1, #30363d)";
+    const BORDER = "var(--dsw-alias-border-l1, #21262d)";
+    const BG = "var(--dsw-alias-bg-base, #000000)";
     const MONO = "ui-monospace, SFmono-Regular, Menlo, monospace";
-    const col = (p) => (p < 50 ? "#3fb950" : p < 80 ? "#d29922" : "#f85149");
+    const col = (p) =>
+      p < 50
+        ? "var(--dsw-alias-state-success-primary, #3fb950)"
+        : p < 80
+          ? "var(--dsw-alias-state-warn-primary, #d29922)"
+          : "var(--dsw-alias-state-error-primary, #f85149)";
 
     const Bar = ({ pct, w }) =>
       h(
@@ -152,6 +159,7 @@ window.__ModuleLoader__.load({
           style: {
             display: "flex",
             alignItems: "center",
+            justifyContent: "center",
             padding: "2px 10px",
             borderTop: "1px solid " + BORDER,
             background: BG,
