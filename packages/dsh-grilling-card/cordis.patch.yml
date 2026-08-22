@@ -1,11 +1,6 @@
-# Plugin rows contributed by @s2p2/dsh-grilling-card.
+# dsh bundle patch: inserts this plugin into a profile's layer stack.
 # Consumed by a profile that lists this package in its bundles or via
 # `dsh plugin --profile web add @s2p2/dsh-grilling-card`.
-#
-# TODO(design): replace this placeholder once the plugin shape is decided:
-#  - client half: register a composer/question renderer for the `grilling-round`
-#    presentation intent (alongside dsh-client-ui-user-questions)
-#  - host half (optional): `grill` tool validating that every question carries
-#    a recommended answer (the grilling skill's rule, enforced in schema)
-- id: dsh-grilling-card
-  name: '@s2p2/dsh-grilling-card'
+- insert:
+    - id: dsh-grilling-card
+      name: '@s2p2/dsh-grilling-card'

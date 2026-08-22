@@ -13,12 +13,12 @@ Skills shape agent behavior through text; they can't register tools, render UI, 
 | Package | Status | What |
 |---|---|---|
 | [`packages/dsh-quota-bar`](packages/dsh-quota-bar) | 🌱 v0.1.x · [spec #1](https://github.com/S2P2/dsh-lab/issues/1) (done) · [v0.2 settings #6](https://github.com/S2P2/dsh-lab/issues/6) | GLM Coding Plan quota card in the sidebar footer: 5h/weekly/tools windows + reset times in a theme-native card. Host-side fetch (credentials-service key resolution) over a loopback route; parser unit-tested. Port of proven pi-config statusline logic. |
-| [`packages/dsh-grilling-card`](packages/dsh-grilling-card) | 🌱 scaffold · 📋 [spec #2](https://github.com/S2P2/dsh-lab/issues/2) | Rich grilling/interview question UI: recommended answers, one-click accept, round-at-a-time, frontier meter. Designed MCP-elicitation-compatible. |
+| [`packages/dsh-grilling-card`](packages/dsh-grilling-card) | 🌱 v0.1 · [spec #2](https://github.com/S2P2/dsh-lab/issues/2) (implemented, dogfooding) | Rich grilling/interview question card: recommended answers, one-click accept, round-at-a-time, frontier meter, recorded-round transcript view. Dual-face (host `grill_round` tool + composer-takeover card); round-trip, wire-legality, and MCP-elicitation tests. |
 | `packages/dsh-glossary` | 📋 [spec #3](https://github.com/S2P2/dsh-lab/issues/3) | Context glossary surfaces: term sidebar, chatbox autocomplete, avoid-list flagging with suggestions. |
 | `packages/dsh-wayfinder-map` | 📋 [spec #4](https://github.com/S2P2/dsh-lab/issues/4) | Decision-ticket map with blocking edges (wayfinder visualization). |
 | `packages/dsh-frontier` | 📋 [spec #5](https://github.com/S2P2/dsh-lab/issues/5) (blocked by #4) | Deterministic implement-spec orchestrator: ticket graph, frontier computation, approval-gated destructive ops. |
 
-> **Spec status:** #1 is implemented and closed (grilled → prototyped → shipped 2026-08-22). #2–#5 are rough seeds from the 2026-08-22 planning session, labeled `needs-triage` — each needs a grilling round before it's `ready-for-agent` for implementation.
+> **Spec status:** #1 is implemented and closed (grilled → prototyped → shipped 2026-08-22). #2 is implemented (grilled → prototyped → built 2026-08-23, dogfooding). #3–#5 are rough seeds from the 2026-08-22 planning session, labeled `needs-triage` — each needs a grilling round before it's `ready-for-agent` for implementation.
 
 ## Install (once packages publish)
 
