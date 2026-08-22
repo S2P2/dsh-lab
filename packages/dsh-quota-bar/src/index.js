@@ -42,23 +42,36 @@ function providerConfig(ctx) {
   return {};
 }
 
-function resolveTarget(ctx) {
+async function resolveTarget(ctx) {
   const provider = providerConfig(ctx);
   const apiKeyEnv = typeof provider.apiKeyEnv === "string" ? provider.apiKeyEnv : "ZAI_API_KEY";
-  const apiKey = process.env[apiKeyEnv] || process.env.ZAI_API_KEY || null;
+  let apiKey = null;
+
+  // Credential service doctrine: settings carry REFERENCES (apiKeyEnv names a
+  // ref), values live behind ctx.credentials.resolve() — layered process env
+  // over the managed store over .env files. Resolved per fetch, never cached.
+  try {
+    const hit = await ctx.get("credentials")?.resolve(apiKeyEnv);
+    if (hit && typeof hit.value === "string" && hit.value) apiKey = hit.value;
+  } catch {
+    /* credentials service not present on this host */
+  }
+  // Direct env fallback for hosts without the service.
+  if (!apiKey) apiKey = process.env[apiKeyEnv] || process.env.ZAI_API_KEY || null;
+
   const rawBase =
     (typeof provider.baseUrl === "string" && provider.baseUrl) ||
     process.env.ZAI_BASE_URL ||
     DEFAULT_BASE;
   const base = rawBase.replace(/^(https?:\/\/[^/]+).*$/, "$1");
-  return { apiKey, base };
+  return { apiKey, base, apiKeyEnv };
 }
 
 async function refresh(ctx) {
-  const { apiKey, base } = resolveTarget(ctx);
+  const { apiKey, base, apiKeyEnv } = await resolveTarget(ctx);
   if (!apiKey) {
     state.stale = true;
-    state.error = `no API key: set $${resolveTarget(ctx).apiKeyEnv || "ZAI_API_KEY"} or configure llm-pi-ai.providers.zai.apiKeyEnv`;
+    state.error = `no API key behind ref ${apiKeyEnv} (credentials service or environment)`;
     return;
   }
   try {
