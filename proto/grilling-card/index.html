@@ -1,0 +1,557 @@
+<!doctype html>
+<!-- PROTOTYPE — THROWAWAY. proto/grilling-card/index.html
+     Question: what should the grilling round card look like? (UI branch, sub-shape B — no host page exists yet)
+     Plan: 3 structurally different variants (A Worksheet / B Checklist / C Split pane), switchable via ?variant= + floating bar.
+     Fake data only; state in memory; submit is a stub. Not production code — do not copy out of here.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grilling card — UI prototype (throwaway)</title>
+<style>
+  :root {
+    --bg: #0f1115; --card: #161a22; --card2: #1b202b; --line: #2a3040;
+    --text: #e6e9ef; --dim: #98a1b3; --faint: #6b7386;
+    --accent: #4f8cff; --accent-soft: #4f8cff26;
+    --good: #34d399; --warn: #fbbf24; --bad: #f87171;
+    --radius: 14px; font-size: 15px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.45; }
+  #app { max-width: 1060px; margin: 0 auto; padding: 28px 16px 120px; }
+  .proto-note { color: var(--faint); font-size: 12px; margin-bottom: 10px; }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .cardhead { padding: 18px 20px 14px; border-bottom: 1px solid var(--line); }
+  .eyebrow { color: var(--dim); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 4px; }
+  .cardtitle { font-size: 17px; font-weight: 600; margin: 0 0 10px; }
+  .meter { display: flex; align-items: center; gap: 10px; }
+  .meter-seg { display: flex; gap: 3px; flex: 1; }
+  .meter-seg i { height: 6px; flex: 1; border-radius: 3px; background: var(--line); }
+  .meter-seg i.done { background: var(--good); }
+  .meter-seg i.cur { background: var(--accent); }
+  .meter-label { color: var(--dim); font-size: 12px; white-space: nowrap; }
+
+  .qrow { padding: 16px 20px; border-bottom: 1px solid var(--line); }
+  .qrow:last-of-type { border-bottom: none; }
+  .qtitle { font-weight: 600; margin: 0 0 2px; }
+  .qbody { color: var(--dim); font-size: 13px; margin: 0 0 10px; }
+  .qnum { color: var(--faint); font-weight: 500; margin-right: 6px; }
+
+  .opt { appearance: none; border: 1px solid var(--line); background: var(--card2); color: var(--text);
+    border-radius: 10px; padding: 8px 14px; font: inherit; font-size: 14px; cursor: pointer; }
+  .opt:hover { border-color: var(--accent); }
+  .opt.sel { border-color: var(--accent); background: var(--accent-soft); }
+  .opt .star { color: var(--warn); margin-right: 4px; }
+  .optdesc { color: var(--faint); font-size: 12px; display: block; text-align: left; }
+
+  textarea.cmt { width: 100%; min-height: 64px; resize: vertical; background: var(--card2); color: var(--text);
+    border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font: inherit; font-size: 13px; }
+  textarea.cmt:focus { outline: none; border-color: var(--accent); }
+
+  .cardfoot { display: flex; align-items: center; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--line); background: var(--card2); }
+  .btn { appearance: none; border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 10px; padding: 9px 16px; font: inherit; font-size: 14px; cursor: pointer; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .btn.ghost { background: none; border-color: transparent; color: var(--dim); }
+  .btn.ghost:hover { color: var(--text); }
+  .footinfo { color: var(--dim); font-size: 12px; margin-left: auto; }
+
+  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 8px; background: var(--line); flex: none; }
+  .dot.answered { background: var(--good); } .dot.skipped { background: var(--warn); } .dot.cur { background: var(--accent); }
+
+  .chip { display: inline-block; border: 1px solid var(--line); color: var(--dim); border-radius: 999px; padding: 2px 10px; font-size: 12px; margin: 2px 4px 2px 0; }
+
+  .summary-line { display: flex; gap: 8px; align-items: baseline; margin: 6px 0; }
+  .summary-line .verdict { font-weight: 600; }
+  .match { color: var(--good); font-size: 12px; } .differ { color: var(--warn); font-size: 12px; }
+
+  details.state { margin-top: 14px; color: var(--faint); font-size: 12px; }
+  details.state pre { white-space: pre-wrap; word-break: break-all; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+
+  /* floating switcher */
+  #switcher { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 50;
+    display: flex; align-items: center; gap: 4px; background: #000; color: #fff;
+    border: 1px solid #ffffff33; border-radius: 999px; padding: 6px 10px; box-shadow: 0 6px 24px #000a; font-size: 13px; }
+  #switcher button { appearance: none; border: none; background: #ffffff1a; color: #fff; border-radius: 999px;
+    width: 28px; height: 28px; cursor: pointer; font-size: 15px; line-height: 1; }
+  #switcher button:hover { background: #ffffff33; }
+  #switcher .vlabel { padding: 0 8px; white-space: nowrap; }
+  #switcher .tag { color: #fbbf24; font-size: 10px; letter-spacing: .06em; border: 1px solid #fbbf2455; border-radius: 4px; padding: 1px 5px; margin-left: 6px; }
+
+  /* variant-specific */
+  .ws-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 14px; }
+  .ws-grid .left { display: flex; flex-wrap: wrap; gap: 8px; align-content: flex-start; }
+  .ws-grid .right { display: flex; flex-direction: column; }
+  .ws-grid .right label { color: var(--faint); font-size: 11px; margin-bottom: 4px; }
+  .narr textarea.cmt { min-height: 84px; }
+  .skiplink { background: none; border: none; color: var(--faint); font-size: 12px; cursor: pointer; padding: 4px 0; text-decoration: underline dotted; }
+  .skiplink:hover { color: var(--warn); }
+
+  .acc-item { border-bottom: 1px solid var(--line); }
+  .acc-item:last-child { border-bottom: none; }
+  .acc-head { width: 100%; display: flex; align-items: center; gap: 4px; padding: 13px 20px; background: none; border: none; color: var(--text); font: inherit; cursor: pointer; text-align: left; }
+  .acc-head:hover { background: #ffffff08; }
+  .acc-head .t { flex: 1; font-weight: 500; }
+  .acc-head .ans { color: var(--good); font-size: 12px; }
+  .acc-body { padding: 4px 20px 16px; }
+  .acc-body .opt { margin: 0 6px 8px 0; }
+
+  .split { display: grid; grid-template-columns: 1.1fr 1fr; min-height: 420px; }
+  .split-left { border-right: 1px solid var(--line); padding: 8px 0; max-height: 70vh; overflow-y: auto; }
+  .split-right { padding: 18px 20px; display: flex; flex-direction: column; }
+  .brief-item { padding: 12px 18px; cursor: pointer; border-left: 3px solid transparent; }
+  .brief-item:hover { background: #ffffff08; }
+  .brief-item.sel { border-left-color: var(--accent); background: var(--accent-soft); }
+  .brief-item h4 { margin: 0 0 3px; font-size: 14px; }
+  .brief-item .opts { color: var(--faint); font-size: 12px; }
+  .editor-q { font-size: 16px; font-weight: 600; margin: 0 0 4px; }
+  .editor-b { color: var(--dim); font-size: 13px; margin: 0 0 14px; }
+  .editor-opts { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+  .editor-opts .opt { text-align: left; padding: 10px 14px; }
+  .editor-foot { margin-top: auto; display: flex; gap: 8px; align-items: center; }
+  .recwhy { color: var(--dim); font-size: 12px; margin: 8px 0 0; }
+  .recwhy b { color: var(--warn); font-weight: 600; }
+  .draft { border-left: 3px solid var(--accent); background: var(--card2); padding: 10px 12px; border-radius: 8px; margin: 0 0 10px; white-space: pre-wrap; }
+  .draftlabel { color: var(--faint); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+  .dleft-item { padding: 12px 16px; cursor: pointer; border-left: 3px solid transparent; }
+  .dleft-item:hover { background: #ffffff08; }
+  .dleft-item.sel { border-left-color: var(--accent); background: var(--accent-soft); }
+  .dleft-item h4 { margin: 0 0 4px; font-size: 14px; display: flex; align-items: baseline; gap: 8px; }
+  .dleft-item .chiprow { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
+  .dleft-chip { border: 1px solid var(--line); border-radius: 999px; padding: 1px 9px; font-size: 12px; color: var(--dim); }
+  .dleft-chip.on { border-color: var(--good); color: var(--good); background: rgba(52, 211, 153, .12); }
+  .dleft-item .picked { color: var(--good); font-size: 12px; }
+  .proto-error { margin-top: 10px; color: var(--bad); font-size: 13px; border: 1px solid #f8717155; border-radius: 8px; padding: 8px 12px; background: #f8717122; }
+  @media (max-width: 860px) { .ws-grid, .split { grid-template-columns: 1fr; } .split-left { max-height: 240px; border-right: none; border-bottom: 1px solid var(--line); } }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="switcher">
+  <button id="prev" title="previous variant (←)">←</button>
+  <span class="vlabel" id="vlabel"></span>
+  <button id="next" title="next variant (→)">→</button>
+  <span class="tag">PROTOTYPE</span>
+</div>
+<script>
+"use strict";
+// ---------- fake round data (dogfoods this very design session) ----------
+const ROUND = {
+  title: "Grilling card — round 3",
+  round: 3,
+  decisionsTotal: 14, settled: 6,
+  questions: [
+    { id: "q1", kind: "choice", title: "Should unanswered questions block submit?",
+      body: "Round atomicity: must every question be answered before submit, or can submit carry unanswered/skipped states back to the agent?",
+      recWhy: "Blocking on completeness punishes partial attention; unanswered questions flow back and get re-asked next round.",
+      options: [
+        { id: "yes", label: "Yes — block until complete" },
+        { id: "no", label: "No — submit anytime", recommended: true }
+      ] },
+    { id: "q2", kind: "choice", title: "Where does the free-text comment attach?",
+      body: "You wanted option buttons plus an optional comment. Placement options:",
+      recWhy: "Matches your card vision: comment beside the choices, per question, always visible.",
+      options: [
+        { id: "side", label: "Comment box beside the choices", recommended: true, desc: "per-question, always visible" },
+        { id: "trail", label: "One trailing comment question", desc: "single box at the end of the round" },
+        { id: "chat", label: "Normal chat beside the card", desc: "no comment field in the card at all" }
+      ] },
+    { id: "q3", kind: "narrative", title: "Describe the accept-all behavior you want.",
+      body: "One click that accepts every recommended answer — what exactly should it do?",
+      draft: "Accept-all fills every unanswered question with its recommendation but does NOT auto-submit — one review glance over the filled form, then Submit yourself. Two clicks total; no rubber-stamping by reflex." },
+    { id: "q4", kind: "choice", title: "Free text always available, even on choice questions?",
+      body: "Never trapped by the options (issue story 5).",
+      recWhy: "Story 5 is explicit; the comment column is the escape hatch.",
+      options: [
+        { id: "yes", label: "Yes, always", recommended: true },
+        { id: "no", label: "No — choices only on choice questions" }
+      ] },
+    { id: "q5", kind: "choice", multi: true, title: "How should the recommendation be marked?",
+      body: "The agent must recommend an answer per question. Visual treatment — pick all you'd accept:",
+      recWhy: "You said star and (Recommended) suffix both work; star is quieter on the button.",
+      options: [
+        { id: "badge", label: "★ star badge on the button", recommended: true },
+        { id: "fill", label: "Pre-filled / highlighted button" },
+        { id: "foot", label: "Footnote list under the round" }
+      ] }
+  ]
+};
+const recOf = q => (q.options || []).find(o => o.recommended);
+
+// ---------- shared state (in memory, stub submit) ----------
+let state;
+function resetState() {
+  state = { submitted: false, error: null, answers: {} };
+  ROUND.questions.forEach(q => { state.answers[q.id] = { choices: [], comment: "", skipped: false, draftVerdict: null }; });
+}
+resetState();
+const answered = q => { const a = state.answers[q.id]; return a.skipped || a.choices.length > 0 || a.draftVerdict !== null || a.comment.trim() !== ""; };
+const answeredCount = () => ROUND.questions.filter(answered).length;
+const isChoice = q => q.kind === "choice";
+
+function acceptAllRecommended() {
+  ROUND.questions.forEach(q => {
+    const a = state.answers[q.id], r = recOf(q);
+    if (a.skipped || a.choices.length || a.draftVerdict !== null || a.comment.trim()) return;
+    if (isChoice(q)) { if (r) a.choices = [r.id]; }
+    else if (q.draft) a.draftVerdict = "agree";
+  });
+}
+function submitRound() {
+  const bad = ROUND.questions.find(q => { const a = state.answers[q.id]; return a.draftVerdict === "disagree" && !a.comment.trim(); });
+  if (bad) {
+    state.error = `Q“${bad.title}”: Disagree needs a comment — tell the agent what's wrong with the draft.`;
+    selQ = bad.id; openQ = bad.id; render();
+    const ta = document.querySelector(`textarea[data-q="${bad.id}"]`); if (ta) ta.focus();
+    return;
+  }
+  state.error = null; state.submitted = true; render();
+}
+
+// ---------- tiny shared helpers (header-level sharing only — layouts are per-variant) ----------
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const star = o => o.recommended ? '<span class="star">★</span>' : "";
+function meterHTML() {
+  const open = ROUND.decisionsTotal - ROUND.settled;
+  let segs = "";
+  for (let i = 0; i < ROUND.settled; i++) segs += '<i class="done"></i>';
+  segs += '<i class="cur"></i>';
+  for (let i = ROUND.settled + 1; i < ROUND.decisionsTotal; i++) segs += '<i></i>';
+  return `<div class="meter"><div class="meter-seg">${segs}</div>
+    <span class="meter-label">round ${ROUND.round} · ${open} decisions open</span></div>`;
+}
+function stateHTML() {
+  return `<details class="state"><summary>answers state (JSON — what the agent would receive)</summary>
+    <pre>${esc(JSON.stringify(state.answers, null, 1))}</pre></details>`;
+}
+function verdictLine(q) {
+  const a = state.answers[q.id];
+  if (a.skipped) return `<div class="summary-line"><span class="dot skipped"></span><span class="verdict">skipped</span></div>`;
+  const chosen = isChoice(q) ? q.options.filter(o => a.choices.includes(o.id)) : [];
+  if (isChoice(q)) {
+    if (!chosen.length && a.comment.trim()) return `<div class="summary-line"><span class="dot answered"></span><span class="verdict">custom:</span> ${esc(a.comment)}</div>`;
+    if (!chosen.length) return `<div class="summary-line"><span class="dot"></span><span class="verdict" style="color:var(--faint)">unanswered</span></div>`;
+    const r = recOf(q), match = r && !q.multi && a.choices.length === 1 && a.choices[0] === r.id;
+    return `<div class="summary-line"><span class="dot answered"></span><span class="verdict">${chosen.map(o => star(o) + esc(o.label)).join(" + ")}</span>
+      <span class="${match ? "match" : "differ"}">${match ? "✓ matches recommendation" : "≠ differs from recommendation"}</span>
+      ${a.comment.trim() ? `<span style="color:var(--dim)">· “${esc(a.comment)}”</span>` : ""}</div>`;
+  }
+  if (a.draftVerdict === "agree") return `<div class="summary-line"><span class="dot answered"></span><span class="verdict">✓ agreed with the agent's draft${a.comment.trim() ? " — “" + esc(a.comment) + "”" : ""}</span></div>`;
+  if (a.draftVerdict === "disagree") return `<div class="summary-line"><span class="dot answered"></span><span class="verdict">✗ disagreed with the draft${a.comment.trim() ? " — “" + esc(a.comment) + "”" : ""}</span></div>`;
+  if (a.comment.trim()) return `<div class="summary-line"><span class="dot answered"></span><span class="verdict">${esc(a.comment)}</span></div>`;
+  return `<div class="summary-line"><span class="dot"></span><span class="verdict" style="color:var(--faint)">unanswered</span></div>`;
+}
+
+// ---------- event delegation (one handler, data-* attributes) ----------
+function onInteraction(ev) {
+  const t = ev.target.closest("[data-act]");
+  if (!t) return;
+  const act = t.dataset.act, qid = t.dataset.q, val = t.dataset.val;
+  const q = qid ? ROUND.questions.find(x => x.id === qid) : null;
+  const a = qid ? state.answers[qid] : null;
+  if (act === "pick") {
+    a.skipped = false;
+    a.choices = q.multi ? (a.choices.includes(val) ? a.choices.filter(x => x !== val) : [...a.choices, val]) : [val];
+    render();
+  }
+  if (act === "draft") { a.draftVerdict = val; a.skipped = false; render(); if (val === "disagree") { const ta = document.querySelector(`textarea[data-q="${qid}"]`); if (ta) ta.focus(); } }
+  if (act === "skip") { a.skipped = true; a.choices = []; a.comment = ""; a.draftVerdict = null; render(); }
+  if (act === "acceptall") { acceptAllRecommended(); render(); }
+  if (act === "submit") { submitRound(); }
+  if (act === "reset") { resetState(); render(); }
+  if (act === "open") { openQ = (openQ === qid ? null : qid); render(); }
+  if (act === "sel") { selQ = qid; render(); }
+  if (act === "step") { const i = ROUND.questions.findIndex(q => q.id === selQ); const n = ROUND.questions[(i + (val === "next" ? 1 : -1) + ROUND.questions.length) % ROUND.questions.length]; selQ = n.id; render(); }
+}
+let openQ = ROUND.questions[0].id;   // variant B accordion
+let selQ = ROUND.questions[0].id;    // variant C selection
+
+// ---------- recorded round: variant A layout, read-only — what the chat transcript card renders ----------
+function recordedHTML() {
+  return ROUND.questions.map((q, i) => {
+    const a = state.answers[q.id];
+    const head = `<h3 class="qtitle"><span class="qnum">Q${i + 1}</span>${esc(q.title)}</h3><p class="qbody">${esc(q.body)}</p>`;
+    let body = "";
+    if (isChoice(q)) {
+      const r = recOf(q);
+      const match = r && !q.multi && a.choices.length === 1 && a.choices[0] === r.id;
+      const chips = `<div class="chiprow">${q.options.map(o =>
+        `<span class="dleft-chip ${a.choices.includes(o.id) ? "on" : ""}">${o.recommended ? "★ " : ""}${q.multi ? "☑ " : ""}${esc(o.label)}</span>`).join("")}</div>`;
+      const cmt = a.comment.trim() ? ` <span style="color:var(--dim);font-size:12px">· “${esc(a.comment)}”</span>` : "";
+      const ann = a.skipped ? `<span class="differ">skipped</span>`
+        : a.choices.length === 0 && a.comment.trim() ? `<span class="differ">custom answer</span>`
+        : a.choices.length === 0 ? `<span style="color:var(--faint);font-size:12px">unanswered</span>`
+        : match ? `<span class="match">✓ matches recommendation</span>`
+        : r ? `<span class="differ">≠ differs from recommendation</span>` : "";
+      body = `${chips}<div style="margin-top:4px">${ann}${cmt}</div>`;
+    } else if (q.draft) {
+      const v = a.skipped ? `<span class="differ">skipped</span>`
+        : a.draftVerdict === "agree" ? `<span class="match">✓ agreed with the agent's draft</span>`
+        : a.draftVerdict === "disagree" ? `<span class="differ">✗ disagreed with the draft</span>`
+        : a.comment.trim() ? `<span class="differ">custom answer</span>` : `<span style="color:var(--faint);font-size:12px">unanswered</span>`;
+      const cmt = a.comment.trim() ? ` <span style="color:var(--dim);font-size:12px">· “${esc(a.comment)}”</span>` : "";
+      body = `<div class="draftlabel">agent's draft</div><blockquote class="draft">${esc(q.draft)}</blockquote><div>${v}${cmt}</div>`;
+    } else {
+      body = a.skipped ? `<span class="differ">skipped</span>`
+        : a.comment.trim() ? `<div class="summary-line"><span class="dot answered"></span><span class="verdict">${esc(a.comment)}</span></div>`
+        : `<span style="color:var(--faint);font-size:12px">unanswered</span>`;
+    }
+    const why = q.recWhy ? `<p class="recwhy"><b>➡️ agent recommended ★</b> — ${esc(q.recWhy)}</p>` : "";
+    return `<div class="qrow">${head}${body}${why}</div>`;
+  }).join("");
+}
+function recordedCard(note) {
+  return `<div class="proto-note">${note}</div>
+    <div class="card">
+      <div class="cardhead"><div class="eyebrow">Grilling round — recorded</div><h2 class="cardtitle">${esc(ROUND.title)}</h2>${meterHTML()}</div>
+      ${recordedHTML()}
+      <div class="cardfoot"><span style="color:var(--good)">✓ Round submitted — this recorded view (variant A layout) is what the chat transcript card renders.</span>
+        <button class="btn" data-act="reset">Reset prototype</button></div>
+    </div>${stateHTML()}`;
+}
+
+// ---------- Variant A — Worksheet: all-open two-column form ----------
+function renderA(root) {
+  if (state.submitted) { root.innerHTML = recordedCard("Variant A — Worksheet (submitted: becomes the recorded-round view below)."); return; }
+  const rows = ROUND.questions.map((q, i) => {
+    const a = state.answers[q.id];
+    const head = `<h3 class="qtitle"><span class="qnum">Q${i + 1}</span>${esc(q.title)}</h3><p class="qbody">${esc(q.body)}</p>`;
+    if (!isChoice(q)) {
+      return `<div class="qrow narr">${head}
+        ${q.draft ? `<div class="draftlabel">agent's draft answer — agree, or push back</div><blockquote class="draft">${esc(q.draft)}</blockquote>` : ""}
+        ${state.submitted ? verdictLine(q) : `<div style="display:flex;gap:8px;margin-bottom:8px">
+          <button class="opt ${a.draftVerdict === "agree" ? "sel" : ""}" data-act="draft" data-q="${q.id}" data-val="agree">✓ Agree with this draft</button>
+          <button class="opt ${a.draftVerdict === "disagree" ? "sel" : ""}" data-act="draft" data-q="${q.id}" data-val="disagree">✗ Disagree</button></div>
+        <textarea class="cmt" data-q="${q.id}" placeholder="Narrative answer — or your correction to the draft">${esc(a.comment)}</textarea>
+        <button class="skiplink" data-act="skip" data-q="${q.id}">skip this question</button>`}</div>`;
+    }
+    const opts = q.options.map(o =>
+      `<button class="opt ${a.choices.includes(o.id) ? "sel" : ""}" data-act="pick" data-q="${q.id}" data-val="${o.id}">
+        ${q.multi ? (a.choices.includes(o.id) ? "☑ " : "☐ ") : ""}${star(o)}${esc(o.label)}${o.desc ? `<span class="optdesc">${esc(o.desc)}</span>` : ""}</button>`).join("");
+    const right = state.submitted
+      ? `<div style="align-self:center">${verdictLine(q)}</div>`
+      : `<label>comment (optional — can combine with a choice)</label>
+         <textarea class="cmt" data-q="${q.id}" placeholder="Why? Caveats? Push back here…">${esc(a.comment)}</textarea>`;
+    return `<div class="qrow"><div class="ws-grid"><div class="left">${head}<div style="display:flex;flex-wrap:wrap;gap:8px">${opts}
+      <button class="skiplink" data-act="skip" data-q="${q.id}" style="align-self:center">skip</button></div>
+      ${q.recWhy ? `<p class="recwhy"><b>➡️ agent recommends ★</b> — ${esc(q.recWhy)}</p>` : ""}</div>
+      <div class="right">${right}</div></div></div>`;
+  }).join("");
+  root.innerHTML = `<div class="proto-note">Variant A — Worksheet: every question open at once, choices left, comment right.</div>
+    <div class="card">
+      <div class="cardhead"><div class="eyebrow">Grilling round</div><h2 class="cardtitle">${esc(ROUND.title)}</h2>${meterHTML()}</div>
+      ${rows}
+      <div class="cardfoot">
+        ${state.submitted
+          ? `<span style="color:var(--good)">✓ Round submitted — summary above is what the transcript card would show.</span>
+             <button class="btn" data-act="reset">Reset prototype</button>`
+          : `<button class="btn" data-act="acceptall">★ Accept all recommended</button>
+             <button class="btn primary" data-act="submit">Submit round</button>
+             <span class="footinfo">${answeredCount()}/${ROUND.questions.length} answered · unanswered return as “unanswered”</span>`}
+      </div>
+    </div>${stateHTML()}`;
+}
+
+// ---------- Variant B — Checklist: compact accordion, one question open ----------
+function renderB(root) {
+  const items = ROUND.questions.map((q, i) => {
+    const a = state.answers[q.id];
+    const isOpen = openQ === q.id;
+    const chosen = isChoice(q) ? q.options.filter(o => a.choices.includes(o.id)) : [];
+    const status = state.submitted || a.skipped || answered(q)
+      ? `<span class="ans">${a.skipped ? "skipped" : chosen.length ? "✓ " + chosen.map(o => esc(o.label)).join(" + ") : a.comment.trim() ? "✓ text" : ""}</span>` : "";
+    let body = "";
+    if (isOpen && !state.submitted) {
+      if (isChoice(q)) {
+        body = q.options.map(o =>
+          `<button class="opt ${a.choices.includes(o.id) ? "sel" : ""}" data-act="pick" data-q="${q.id}" data-val="${o.id}">${q.multi ? (a.choices.includes(o.id) ? "☑ " : "☐ ") : ""}${star(o)}${esc(o.label)}</button>`).join("") +
+          `<div style="margin:8px 0 10px"><textarea class="cmt" data-q="${q.id}" placeholder="Comment (optional)">${esc(a.comment)}</textarea></div>`;
+      } else {
+        body = `<div style="margin:2px 0 10px"><textarea class="cmt" data-q="${q.id}" placeholder="Narrative answer">${esc(a.comment)}</textarea></div>`;
+      }
+      body += `<button class="skiplink" data-act="skip" data-q="${q.id}">skip this question</button>`;
+    }
+    return `<div class="acc-item">
+      <button class="acc-head" data-act="open" data-q="${q.id}">
+        <span class="dot ${a.skipped ? "skipped" : answered(q) ? "answered" : isOpen ? "cur" : ""}"></span>
+        <span class="t"><span class="qnum">Q${i + 1}</span>${esc(q.title)}</span>${status}</button>
+      ${body ? `<div class="acc-body">${body}</div>` : state.submitted ? `<div class="acc-body">${verdictLine(q)}</div>` : ""}</div>`;
+  }).join("");
+  root.innerHTML = `<div class="proto-note">Variant B — Checklist: dense accordion; one question open at a time; status dots and inline answers.</div>
+    <div class="card">
+      <div class="cardhead"><div class="eyebrow">Grilling round</div><h2 class="cardtitle">${esc(ROUND.title)}</h2>${meterHTML()}</div>
+      ${items}
+      <div class="cardfoot">
+        ${state.submitted
+          ? `<span style="color:var(--good)">✓ Submitted.</span><button class="btn" data-act="reset">Reset prototype</button>`
+          : `<button class="btn ghost" data-act="acceptall">★ Fill all recommended</button>
+             <button class="btn primary" data-act="submit">Submit round</button>
+             <span class="footinfo">${answeredCount()}/${ROUND.questions.length} answered</span>`}
+      </div>
+    </div>${stateHTML()}`;
+}
+
+// ---------- Variant C — Split pane: readable brief left, focused editor right ----------
+function renderC(root) {
+  const brief = ROUND.questions.map((q, i) => {
+    const a = state.answers[q.id];
+    const opts = isChoice(q) ? q.options.map(o => (o.recommended ? "★" : "") + (q.multi ? "☐" : "") + o.label).join(" · ") : (q.draft ? "draft — agree/disagree" : "narrative");
+    return `<div class="brief-item ${selQ === q.id ? "sel" : ""}" data-act="sel" data-q="${q.id}">
+      <h4><span class="dot ${a.skipped ? "skipped" : answered(q) ? "answered" : ""}"></span><span class="qnum">Q${i + 1}</span>${esc(q.title)}</h4>
+      <div class="opts">${esc(opts)}</div></div>`;
+  }).join("");
+  const q = ROUND.questions.find(x => x.id === selQ);
+  const a = state.answers[q.id];
+  let editor;
+  if (state.submitted) {
+    editor = `<h3 class="editor-q">Receipt — round ${ROUND.round}</h3>
+      <p class="editor-b">What the transcript keeps readable after submit:</p>
+      ${ROUND.questions.map(verdictLine).join("")}
+      <div class="editor-foot"><button class="btn" data-act="reset">Reset prototype</button></div>`;
+  } else {
+    let opts = "";
+    if (isChoice(q)) {
+      opts = `<div class="editor-opts">${q.options.map(o =>
+          `<button class="opt ${a.choices.includes(o.id) ? "sel" : ""}" data-act="pick" data-q="${q.id}" data-val="${o.id}">
+            ${q.multi ? (a.choices.includes(o.id) ? "☑ " : "☐ ") : ""}${star(o)}${esc(o.label)}${o.desc ? `<span class="optdesc">${esc(o.desc)}</span>` : ""}</button>`).join("")}</div>`;
+    } else if (q.draft) {
+      opts = `<div class="draftlabel">agent's draft answer — agree, or push back</div><blockquote class="draft">${esc(q.draft)}</blockquote>
+        <div class="editor-opts">
+          <button class="opt ${a.draftVerdict === "agree" ? "sel" : ""}" data-act="draft" data-q="${q.id}" data-val="agree">✓ Agree with this draft</button>
+          <button class="opt ${a.draftVerdict === "disagree" ? "sel" : ""}" data-act="draft" data-q="${q.id}" data-val="disagree">✗ Disagree</button>
+        </div>`;
+    }
+    editor = `<h3 class="editor-q">${esc(q.title)}</h3><p class="editor-b">${esc(q.body)}</p>
+      ${opts}
+      ${q.recWhy ? `<p class="recwhy"><b>➡️ agent recommends ★</b> — ${esc(q.recWhy)}</p>` : ""}
+      <label style="color:var(--faint);font-size:11px;margin-bottom:4px">${isChoice(q) ? "comment (optional — combines with a choice)" : q.draft ? "correction / comment (optional with Agree, expected with Disagree)" : "narrative answer"}</label>
+      <textarea class="cmt" data-q="${q.id}" placeholder="${isChoice(q) ? "Push back, caveat, refine…" : q.draft ? "What's wrong with the draft?" : "Your words…"}">${esc(a.comment)}</textarea>
+      <div class="editor-foot">
+        <button class="btn ghost" data-act="step" data-val="prev">← prev</button>
+        <button class="btn ghost" data-act="step" data-val="next">next →</button>
+        <button class="skiplink" data-act="skip" data-q="${q.id}">skip</button>
+      </div>`;
+  }
+  root.innerHTML = `<div class="proto-note">Variant C — Split pane: the round as a readable brief; answer one question at a time on the right.</div>
+    <div class="card">
+      <div class="cardhead"><div class="eyebrow">Grilling round</div><h2 class="cardtitle">${esc(ROUND.title)}</h2>${meterHTML()}</div>
+      <div class="split">
+        <div class="split-left">${brief}</div>
+        <div class="split-right">${editor}</div>
+      </div>
+      <div class="cardfoot">
+        ${state.submitted ? "" : `<button class="btn" data-act="acceptall">★ Accept all recommended</button>
+        <button class="btn primary" data-act="submit">Submit round</button>
+        <span class="footinfo">${answeredCount()}/${ROUND.questions.length} answered</span>`}
+      </div>
+    </div>${stateHTML()}`;
+}
+
+// ---------- Variant D — Hybrid: A's full overview left, C's focused editor right, B's dots ----------
+function renderD(root) {
+  if (state.submitted) {
+    root.innerHTML = recordedCard("Variant D — Hybrid (submitted: recorded as variant A layout for transcript review).");
+    return;
+  }
+  const left = ROUND.questions.map((q, i) => {
+    const a = state.answers[q.id];
+    let chips = "";
+    if (isChoice(q)) {
+      chips = `<div class="chiprow">${q.options.map(o =>
+        `<span class="dleft-chip ${a.choices.includes(o.id) ? "on" : ""}">${o.recommended ? "★ " : ""}${q.multi ? "☐ " : ""}${esc(o.label)}</span>`).join("")}</div>`;
+    } else if (q.draft) {
+      chips = `<div class="chiprow">
+        <span class="dleft-chip ${a.draftVerdict === "agree" ? "on" : ""}">★ ✓ Agree</span>
+        <span class="dleft-chip ${a.draftVerdict === "disagree" ? "on" : ""}">✗ Disagree</span></div>`;
+    } else {
+      chips = `<div class="chiprow"><span class="dleft-chip">narrative</span></div>`;
+    }
+    const note = a.skipped ? `<span class="picked" style="color:var(--warn)">skipped</span>`
+      : a.comment.trim() ? `<span class="picked">✓ “${esc(a.comment.length > 44 ? a.comment.slice(0, 44) + "…" : a.comment)}”</span>`
+      : "";
+    return `<div class="dleft-item ${selQ === q.id ? "sel" : ""}" data-act="sel" data-q="${q.id}">
+      <h4><span class="dot ${a.skipped ? "skipped" : answered(q) ? "answered" : selQ === q.id ? "cur" : ""}"></span><span class="qnum">Q${i + 1}</span>${esc(q.title)}</h4>
+      ${chips}${note}</div>`;
+  }).join("");
+  const q = ROUND.questions.find(x => x.id === selQ);
+  const a = state.answers[q.id];
+  let body = "";
+  if (isChoice(q)) {
+    body = `<div class="editor-opts">${q.options.map(o =>
+      `<button class="opt ${a.choices.includes(o.id) ? "sel" : ""}" data-act="pick" data-q="${q.id}" data-val="${o.id}">
+        ${q.multi ? (a.choices.includes(o.id) ? "☑ " : "☐ ") : ""}${star(o)}${esc(o.label)}${o.desc ? `<span class="optdesc">${esc(o.desc)}</span>` : ""}</button>`).join("")}</div>`;
+  } else if (q.draft) {
+    body = `<div class="draftlabel">agent's draft answer — agree, or push back</div><blockquote class="draft">${esc(q.draft)}</blockquote>
+      <div class="editor-opts">
+        <button class="opt ${a.draftVerdict === "agree" ? "sel" : ""}" data-act="draft" data-q="${q.id}" data-val="agree">✓ Agree with this draft</button>
+        <button class="opt ${a.draftVerdict === "disagree" ? "sel" : ""}" data-act="draft" data-q="${q.id}" data-val="disagree">✗ Disagree</button>
+      </div>`;
+  }
+  root.innerHTML = `<div class="proto-note">Variant D — Hybrid: everything visible left (options, ★ recommendations, ➡️ why), one focused editor right, green dots for answered.</div>
+    <div class="card">
+      <div class="cardhead"><div class="eyebrow">Grilling round</div><h2 class="cardtitle">${esc(ROUND.title)}</h2>${meterHTML()}</div>
+      <div class="split">
+        <div class="split-left">${left}</div>
+        <div class="split-right">
+          <h3 class="editor-q">${esc(q.title)}</h3><p class="editor-b">${esc(q.body)}</p>
+          ${body}
+          ${q.recWhy ? `<p class="recwhy"><b>➡️ agent recommends ★</b> — ${esc(q.recWhy)}</p>` : ""}
+          <label style="color:var(--faint);font-size:11px;margin-bottom:4px">${isChoice(q) ? "comment (optional — combines with a choice)" : q.draft ? "correction / comment (optional with Agree, expected with Disagree)" : "narrative answer"}</label>
+          <textarea class="cmt" data-q="${q.id}" placeholder="${isChoice(q) ? "Push back, caveat, refine…" : q.draft ? "What's wrong with the draft?" : "Your words…"}">${esc(a.comment)}</textarea>
+          <div class="editor-foot">
+            <button class="btn ghost" data-act="step" data-val="prev">← prev</button>
+            <button class="btn ghost" data-act="step" data-val="next">next →</button>
+            <button class="skiplink" data-act="skip" data-q="${q.id}">skip</button>
+          </div>
+        </div>
+      </div>
+      <div class="cardfoot">
+        <button class="btn" data-act="acceptall">★ Accept all recommended</button>
+        <button class="btn primary" data-act="submit">Submit round</button>
+        <span class="footinfo">${answeredCount()}/${ROUND.questions.length} answered</span>
+      </div>
+    </div>${stateHTML()}`;
+}
+
+// ---------- switcher ----------
+const VARIANTS = [
+  { key: "A", name: "Worksheet", fn: renderA },
+  { key: "B", name: "Checklist", fn: renderB },
+  { key: "C", name: "Split pane", fn: renderC },
+  { key: "D", name: "Hybrid (A overview + C focus + dots)", fn: renderD }
+];
+let current = Math.max(0, VARIANTS.findIndex(v => v.key === (new URLSearchParams(location.search).get("variant") || "A")));
+function setVariant(i) {
+  current = (i + VARIANTS.length) % VARIANTS.length;
+  try { history.replaceState(null, "", "?variant=" + VARIANTS[current].key); } catch (e) { /* file:// may refuse */ }
+  render();
+}
+function render() {
+  const v = VARIANTS[current];
+  const root = document.getElementById("app");
+  const focus = document.activeElement;
+  const fq = focus && focus.dataset ? focus.dataset.q : null;
+  const fpos = focus && (focus.selectionStart || 0);
+  v.fn(root);
+  document.getElementById("vlabel").textContent = `${v.key} — ${v.name}`;
+  if (state.error) { const d = document.createElement("div"); d.className = "proto-error"; d.textContent = "⚠ " + state.error; root.appendChild(d); }
+  if (fq) { const again = root.querySelector(`[data-q="${fq}"]`); if (again) { again.focus(); try { again.setSelectionRange(fpos, fpos); } catch (e) {} } }
+}
+document.getElementById("prev").onclick = () => setVariant(current - 1);
+document.getElementById("next").onclick = () => setVariant(current + 1);
+document.addEventListener("keydown", ev => {
+  if (ev.target.matches("input, textarea, [contenteditable]")) return;
+  if (ev.key === "ArrowLeft") setVariant(current - 1);
+  if (ev.key === "ArrowRight") setVariant(current + 1);
+});
+document.getElementById("app").addEventListener("click", onInteraction);
+document.getElementById("app").addEventListener("input", ev => {
+  const t = ev.target.closest("textarea[data-q]");
+  if (!t) return;
+  state.answers[t.dataset.q].comment = t.value;   // no re-render while typing; state panel updates on next render
+});
+render();
+</script>
+</body>
+</html>
