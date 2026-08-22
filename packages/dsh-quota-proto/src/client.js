@@ -153,6 +153,7 @@ window.__ModuleLoader__.load({
 
     const DockBar = () => {
       const s = useStore();
+      DEBUG.rendered = true;
       if (!on("A")) return null;
       const seg = (w) =>
         h(
@@ -197,6 +198,7 @@ window.__ModuleLoader__.load({
 
     const HeaderChip = () => {
       const s = useStore();
+      DEBUG.rendered = true;
       const [w, setW] = React.useState("fiveHour");
       if (!on("B")) return null;
       const d = s.windows[w];
@@ -235,6 +237,7 @@ window.__ModuleLoader__.load({
 
     const SidebarFooter = () => {
       const s = useStore();
+      DEBUG.rendered = true;
       if (!on("C")) return null;
       const row = (w) =>
         h(
@@ -264,6 +267,7 @@ window.__ModuleLoader__.load({
 
     const InputRing = () => {
       const s = useStore();
+      DEBUG.rendered = true;
       const [w, setW] = React.useState("fiveHour");
       if (!on("D")) return null;
       const d = s.windows[w];
@@ -321,6 +325,7 @@ window.__ModuleLoader__.load({
 
     const FloatingCard = () => {
       const s = useStore();
+      DEBUG.rendered = true;
       const [open, setOpen] = React.useState(false);
       if (!on("E")) return null;
       if (!open) {
@@ -428,6 +433,7 @@ window.__ModuleLoader__.load({
 
     const Switcher = () => {
       const s = useStore();
+      DEBUG.rendered = true;
       React.useEffect(() => {
         const onKey = (e) => {
           const t = e.target;
@@ -497,16 +503,23 @@ window.__ModuleLoader__.load({
 
     /* ---------------- registration ---------------- */
 
+    // Shipped pattern (ui-goal): register's `name` is the TARGET SLOT KEY and
+    // `id` is the contribution identity. A unique `name` targets a phantom slot
+    // that nothing renders.
     const SEATS = [
-      { v: "A", slot: "conversation.input.dock", opts: { name: "dsh-quota-proto-dock", order: 12 }, comp: DockBar },
-      { v: "B", slot: "conversation.session.header.actions", opts: { name: "dsh-quota-proto-header" }, comp: HeaderChip },
-      { v: "C", slot: "sidebar.footer.action", opts: { name: "dsh-quota-proto-sidebar" }, comp: SidebarFooter },
-      { v: "D", slot: "conversation.input.right", opts: { name: "dsh-quota-proto-ring" }, comp: InputRing },
-      // E renders position:fixed from wherever it mounts; shell.overlay is the
-      // app-shell floating slot (dshmarket/quota-panel pattern) and always renders,
-      // so the capsule no longer depends on the composer dock being visible.
-      { v: "E", slot: "shell.overlay", opts: { name: "dsh-quota-proto-float" }, comp: FloatingCard },
+      { v: "A", slot: "conversation.input.dock", opts: { id: "quota-proto-dock", order: 12 }, comp: DockBar },
+      { v: "B", slot: "conversation.session.header.actions", opts: { id: "quota-proto-header" }, comp: HeaderChip },
+      { v: "C", slot: "sidebar.footer.action", opts: { id: "quota-proto-sidebar" }, comp: SidebarFooter },
+      { v: "D", slot: "conversation.input.right", opts: { id: "quota-proto-ring" }, comp: InputRing },
+      { v: "E", slot: "shell.overlay", opts: { id: "quota-proto-float" }, comp: FloatingCard },
     ];
+
+    const DEBUG = (window.__QUOTA_PROTO_DEBUG__ = {
+      mountedAt: new Date().toISOString(),
+      statuses: STATUS,
+      errors: {},
+      rendered: false,
+    });
 
     exports.inject = ["slots"];
     exports.apply = (ctx) => {
@@ -518,23 +531,61 @@ window.__ModuleLoader__.load({
           ctx.slots.inject(seat.slot, function* () {
             STATUS[seat.v] = "mounted";
             refresh();
-            yield ctx.slots.register(seat.opts, seat.comp);
+            yield ctx.slots.register({ name: seat.slot, ...seat.opts }, seat.comp);
           });
         } catch (e) {
           STATUS[seat.v] = "error";
+          DEBUG.errors[seat.v] = String(e && e.message ? e.message : e);
+          console.error("[quota-proto] seat", seat.v, seat.slot, e);
           refresh();
         }
       }
-      // The switcher is the diagnostic readout: it must render even when every
-      // seat under test fails, so it lives in the app-shell overlay slot.
+      // The switcher is the diagnostic readout and must not share fate with the
+      // seats under test: shell.overlay is the app-shell floating slot.
       try {
         ctx.slots.inject("shell.overlay", function* () {
-          yield ctx.slots.register({ name: "dsh-quota-proto-switcher" }, Switcher);
+          yield ctx.slots.register({ name: "shell.overlay", id: "quota-proto-switcher" }, Switcher);
         });
       } catch (e) {
-        /* switcher is best-effort */
+        DEBUG.errors.switcher = String(e && e.message ? e.message : e);
+        console.error("[quota-proto] switcher", e);
       }
-      ctx.on("dispose", () => clearInterval(timer));
+      // Plain-DOM canary: if no React surface of this plugin has rendered within
+      // 2.5s, pin a debug banner straight to <body>, bypassing the slot system,
+      // so there is ALWAYS a visible readout of internal state.
+      setTimeout(() => {
+        if (DEBUG.rendered) return;
+        const el = document.createElement("div");
+        el.setAttribute("data-quota-proto-debug", "");
+        el.textContent =
+          "quota-proto DEBUG — no React surface rendered. statuses: " +
+          Object.entries(STATUS).map(([k, v]) => k + ":" + v).join(" ") +
+          " | errors: " +
+          (Object.entries(DEBUG.errors).map(([k, e]) => k + "=" + e).join("; ") || "none") +
+          " | click to dismiss; window.__QUOTA_PROTO_DEBUG__ has live state";
+        Object.assign(el.style, {
+          position: "fixed",
+          bottom: "10px",
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: "2147483647",
+          maxWidth: "90vw",
+          background: "#5a1d1d",
+          color: "#ffb4b4",
+          border: "1px solid #f8514988",
+          borderRadius: "8px",
+          padding: "6px 10px",
+          font: "11px ui-monospace, monospace",
+          cursor: "pointer",
+          whiteSpace: "pre-wrap",
+        });
+        el.addEventListener("click", () => el.remove());
+        document.body.appendChild(el);
+      }, 2500);
+      ctx.on("dispose", () => {
+        clearInterval(timer);
+        delete window.__QUOTA_PROTO_DEBUG__;
+      });
     };
     return module.exports;
   },
