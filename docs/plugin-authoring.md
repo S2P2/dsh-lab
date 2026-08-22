@@ -1,5 +1,17 @@
 # DSH plugin authoring — field notes
 
+> **Official docs exist** (upstream `master` branch — note: not `main`):
+> [extension cookbook](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/cookbook/extension-cookbook.md)
+> (tool / hook / UI plugin shapes), [capability seams](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/capability-seams.md),
+> [cordis primer](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/cordis-primer.md),
+> [web styling](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/web-styling.md),
+> and cookbook recipes ([adding-a-tool](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/cookbook/adding-a-tool.md),
+> [adding-a-conversation-node](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/cookbook/adding-a-conversation-node.md), …).
+> Verified 2026-08-22: none of them document the out-of-tree wiring below —
+> the extension cookbook has 0 mentions of patch ops, `slots.register`, slot
+> keys, credential refs, or the `webServer` data path, and `adding-a-package`
+> targets in-monorepo packages. Those gaps are what this file covers.
+
 What the shipped package READMEs don't say plainly, learned by building
 `dsh-quota-bar` (2026-08-22 session; every trap below cost at least one failed
 restart). Audience: future plugins in this lab. The authoritative contracts
