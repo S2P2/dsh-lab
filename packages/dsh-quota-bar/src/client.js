@@ -175,6 +175,8 @@ window.__ModuleLoader__.load({
               alignItems: "center",
               justifyContent: "center",
               gap: "12px",
+              width: "fit-content",
+              maxWidth: "100%",
               margin: "0 auto",
               padding: "3px 14px",
               border: "1px solid " + BORDER,
