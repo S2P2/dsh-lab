@@ -1,2 +1,4 @@
-- id: dsh-quota-proto
-  name: '@s2p2/dsh-quota-proto'
+# dsh bundle patch: inserts this plugin into a profile's layer stack.
+- insert:
+    - id: dsh-quota-proto
+      name: '@s2p2/dsh-quota-proto'
