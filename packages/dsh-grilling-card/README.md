@@ -28,8 +28,12 @@ Recommendation metadata (stars, rationale, drafts, meter) never touches the wire
 
 ## Enforcement points
 
-- **Disagree-requires-comment** is enforced in the card (submit is refused until the comment box fills). The wire cannot express it, so a round answered through the *generic fallback card* (plugin not loaded) can return a commentless disagree — degraded but functional, per the ADR's fallback doctrine.
+- **Disagree-requires-comment** is enforced twice: the card refuses submit until the comment box fills, and the host seam normalizes a commentless `✗ Disagree` (possible only through the *generic fallback card*) back to `status: "unanswered"` — the question flows to the next round instead of silently recording an incomplete verdict. Degraded but functional, per the ADR's fallback doctrine.
 - **Unanswered questions never block submit**: they return with `status: "unanswered"` and get re-asked in a later round; explicit skips return `status: "skipped"`.
+- **Spec reconciliations** (issue #2 leaves these open):
+  - The `skipped` status needs a wire carrier the stock protocol doesn't offer, so the host appends one reserved option (`Skip this question`) to every question. The card renders it as the skip affordance, never a chip; through the generic fallback it appears as one extra option — the same degraded-but-functional trade the ADR accepts for checkbox styling.
+  - "A Recommendation on every question" and "draftless narrative stays plain free text" are reconciled by making `draft` mandatory at the tool seam, while the card keeps a degraded plain-free-text branch for questions it cannot join (a round whose tool call fell off the loaded page renders wire-only, without stars or accept-all).
+  - The card's collapse and dismiss affordances mirror the shipped question composer's minimize/cancel — chrome parity with the surface it takes over, not new invention.
 
 ## MCP elicitation compatibility
 

@@ -29,7 +29,7 @@ const validRound = {
 		{
 			id: "q2",
 			question: "Which visual treatments do you accept?",
-			options: [{ label: "star badge" }, { label: "prefill" }, { label: "footnote" }],
+			options: [{ label: "star badge" }, { label: "fill on accept" }, { label: "footnote" }],
 			recommended: "star badge",
 			multi: true,
 		},
@@ -207,13 +207,13 @@ test("buildWireQuestions mints prefixed ids, verbatim labels, and the multiSelec
 test("normalizeAnswers types every wire answer and strips the prefix", () => {
 	const answers = normalizeAnswers([
 		{ id: `${ID_PREFIX}q1`, selected: ["No — submit anytime"] },
-		{ id: `${ID_PREFIX}q2`, selected: ["star badge", "prefill"], custom: "  both feel fine  " },
+		{ id: `${ID_PREFIX}q2`, selected: ["star badge", "fill on accept"], custom: "  both feel fine  " },
 		{ id: `${ID_PREFIX}q3`, selected: [AGREE_LABEL] },
 	]);
 	assert.deepEqual(answers, {
 		answers: [
 			{ id: "q1", status: "answered", selected: ["No — submit anytime"] },
-			{ id: "q2", status: "answered", selected: ["star badge", "prefill"], custom: "both feel fine" },
+			{ id: "q2", status: "answered", selected: ["star badge", "fill on accept"], custom: "both feel fine" },
 			{ id: "q3", status: "answered", selected: [AGREE_LABEL] },
 		],
 	});
@@ -249,6 +249,25 @@ test("skip takes precedence over simultaneous selections the wire should never s
 		{ id: "q1", selected: [SKIP_LABEL, "No — submit anytime"], custom: "noise" },
 	]).answers;
 	assert.deepEqual(a, { id: "q1", status: "skipped", selected: [] });
+});
+
+test("a bare Disagree (no comment) returns unanswered — the seam enforces the invariant", () => {
+	const [a] = normalizeAnswers([
+		{ id: "q3", selected: [DISAGREE_LABEL] },
+	]).answers;
+	assert.deepEqual(a, { id: "q3", status: "unanswered", selected: [] });
+});
+
+test("Disagree with a comment stays answered", () => {
+	const [a] = normalizeAnswers([
+		{ id: "q3", selected: [DISAGREE_LABEL], custom: "too vague" },
+	]).answers;
+	assert.deepEqual(a, {
+		id: "q3",
+		status: "answered",
+		selected: [DISAGREE_LABEL],
+		custom: "too vague",
+	});
 });
 
 test("normalizeAnswers tolerates defensive inputs: unprefixed ids and empty strings", () => {

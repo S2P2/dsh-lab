@@ -217,6 +217,13 @@ export function normalizeAnswers(wireAnswers) {
 		if (selected.length === 0 && custom === "") {
 			return { id, status: "unanswered", selected: [] };
 		}
+		// "Disagree requires a comment" (issue #2) enforced at the seam, not
+		// only in the card: through the generic fallback card a commentless
+		// Disagree can arrive, and it is not a complete answer — it flows
+		// back unanswered for the next round rather than failing the round.
+		if (selected.includes(DISAGREE_LABEL) && custom === "") {
+			return { id, status: "unanswered", selected: [] };
+		}
 		return {
 			id,
 			status: "answered",

@@ -5,7 +5,7 @@
  *
  * Two contributions:
  * 1. `conversation.composer` chain entry at priority -1 whose selector
- *    claims only `grill:`-prefixed question batches (ADR 0001) and renders
+ *    claims only `grill:`-prefixed question rounds (ADR 0001) and renders
  *    the live Grilling Card (hybrid "D" from the validated prototype:
  *    full round overview left, one focused editor right).
  * 2. `tool.call.toolview` keyed `grill_round` — the Recorded Round: a flat
@@ -61,7 +61,7 @@ window.__ModuleLoader__.load({
 .s2p2g-chips{display:flex;flex-wrap:wrap;gap:4px;margin:3px 0}
 .s2p2g-chip{border:1px solid var(--dsw-alias-border-l2, #2a3040);border-radius:999px;padding:1px 9px;font-size:11.5px;line-height:17px;color:var(--dsw-alias-label-secondary, #98a1b3)}
 .s2p2g-chip.on{border-color:var(--dsw-alias-state-success-primary, #34d399);color:var(--dsw-alias-state-success-primary, #34d399);background:color-mix(in srgb, var(--dsw-alias-state-success-primary, #34d399) 12%, transparent)}
-.s2p2g-chip .star{color:var(--dsw-alias-state-warn-primary, #fbbf24);margin-right:3px}
+.s2p2g-chip .star{color:inherit;margin-right:3px}
 .s2p2g-qnote{color:var(--dsw-alias-state-success-primary, #34d399);font-size:11.5px;margin:2px 0 0}
 .s2p2g-qnote.skip{color:var(--dsw-alias-state-warn-primary, #fbbf24)}
 .s2p2g-right{padding:16px 18px 12px;display:flex;flex-direction:column;min-height:0;overflow-y:auto}
@@ -121,6 +121,10 @@ window.__ModuleLoader__.load({
 
 		const stripId = (id) => (id.startsWith(PREFIX) ? id.slice(PREFIX.length) : id);
 
+		/** The frozen args of a tool-call block, from either lifecycle form. */
+		const argsRawOf = (block) =>
+			block.kind === "tool-result" ? block.call?.argsRaw : block.argsRaw;
+
 		function parseArgsRaw(argsRaw) {
 			try {
 				const parsed = JSON.parse(argsRaw);
@@ -146,7 +150,7 @@ window.__ModuleLoader__.load({
 				const block = node.data.root;
 				const name = block.kind === "tool-result" ? block.call?.name : block.name;
 				if (name !== "grill_round") continue;
-				const args = parseArgsRaw(block.kind === "tool-result" ? block.call?.argsRaw : block.argsRaw);
+				const args = parseArgsRaw(argsRawOf(block));
 				if (!args) continue;
 				const ids = args.questions.map((q) => q.id);
 				if (ids.length === wanted.size && ids.every((id) => wanted.has(id))) return args;
@@ -252,10 +256,10 @@ window.__ModuleLoader__.load({
 				setAnswers((cur) =>
 					cur.map((a, i) => {
 						const q = questions[i];
-						if (a.skipped || a.picks.length > 0 || a.comment.trim() !== "") return a;
+						if (isAnswered(q, a)) return a;
 						if (q.kind === "draft") return { ...a, picks: q.agreeLabel ? [q.agreeLabel] : [] };
 						if ((q.kind === "choice" || q.kind === "multi") && q.recommended) {
-							return { ...a, picks: q.multi ? [q.recommended] : [q.recommended] };
+							return { ...a, picks: [q.recommended] };
 						}
 						return a;
 					}),
@@ -300,10 +304,10 @@ window.__ModuleLoader__.load({
 				setBusy(true);
 				setError(null);
 				matched.respond(payload).then(
-					(receipt) => {
-						if (!receipt || receipt.accepted !== true) {
+					(outcome) => {
+						if (!outcome || outcome.accepted !== true) {
 							setBusy(false);
-							setError("The host rejected this answer batch" + (receipt && receipt.reason ? ` (${receipt.reason})` : "") + ".");
+							setError("The host rejected this answer round" + (outcome && outcome.reason ? ` (${outcome.reason})` : "") + ".");
 						}
 					},
 					(cause) => {
@@ -385,7 +389,7 @@ window.__ModuleLoader__.load({
 					q.kind === "wire" ? h("span", { className: "s2p2g-chip" }, "narrative") : null,
 				);
 
-			const note = (q, a) => {
+			const commentExcerpt = (q, a) => {
 				if (a.skipped) return h("div", { className: "s2p2g-qnote skip" }, "skipped");
 				if (a.comment.trim() !== "") {
 					const text = a.comment.trim();
@@ -486,7 +490,7 @@ window.__ModuleLoader__.load({
 						),
 					),
 					preamble
-						? h("div", { className: "s2p2g-preamble" }, preamble.split("\n\n")[0])
+						? h("div", { className: "s2p2g-preamble" }, preamble)
 						: null,
 					h(
 						"div",
@@ -494,23 +498,23 @@ window.__ModuleLoader__.load({
 						h(
 							"div",
 							{ className: "s2p2g-left" },
-							questions.map((qq, i) =>
+							questions.map((question, i) =>
 								h(
 									"button",
-									{ type: "button", key: qq.wireId, className: "s2p2g-qitem" + (i === sel ? " sel" : ""), onClick: () => setSel(i) },
+									{ type: "button", key: question.wireId, className: "s2p2g-qitem" + (i === sel ? " sel" : ""), onClick: () => setSel(i) },
 									h(
 										"div",
 										{ className: "s2p2g-qtitle" },
 										h("span", {
 											className:
 												"s2p2g-dot" +
-												(answers[i].skipped ? " skipped" : isAnswered(qq, answers[i]) ? " answered" : i === sel ? " cur" : ""),
+												(answers[i].skipped ? " skipped" : isAnswered(question, answers[i]) ? " answered" : i === sel ? " cur" : ""),
 										}),
 										h("span", { className: "s2p2g-qnum" }, `Q${i + 1}`),
-										qq.question,
+										question.question,
 									),
-									chips(qq, answers[i]),
-									note(qq, answers[i]),
+									chips(question, answers[i]),
+									commentExcerpt(question, answers[i]),
 								),
 							),
 						),
@@ -586,17 +590,16 @@ window.__ModuleLoader__.load({
 		}
 
 		function GrillToolview({ block }) {
-			const args = React.useMemo(
-				() => parseArgsRaw(block.kind === "tool-result" ? block.call?.argsRaw : block.argsRaw),
-				[block],
-			);
+			const args = React.useMemo(() => parseArgsRaw(argsRawOf(block)), [block]);
 			if (!args) return h("div", { className: "s2p2g-rowline" }, "grill_round");
+			const roundNo = args.progress?.round ?? "?";
+			const open = args.progress?.decisionsOpen ?? "?";
 			if (block.kind !== "tool-result") {
 				return h(
 					"div",
 					{ className: "s2p2g-rowline" },
 					h("span", { className: "pulse" }),
-					`Grilling round ${args.progress?.round ?? "?"} — waiting for answers…`,
+					`Grilling round ${roundNo} — waiting for answers…`,
 				);
 			}
 			if (block.isError || block.error) {
@@ -604,7 +607,7 @@ window.__ModuleLoader__.load({
 				return h(
 					"div",
 					{ className: "s2p2g-rowline" },
-					`Grilling round ${args.progress?.round ?? "?"} — ${code === "ASK_CANCELLED" ? "dismissed by the user" : code === "ASK_ABORTED" ? "interrupted" : "no answer recorded"}.`,
+					`Grilling round ${roundNo} — ${code === "ASK_CANCELLED" ? "dismissed by the user" : code === "ASK_ABORTED" ? "interrupted" : "no answer recorded"}.`,
 				);
 			}
 			const parsed = resultJson(block);
@@ -618,7 +621,7 @@ window.__ModuleLoader__.load({
 					"div",
 					{ className: "s2p2g-rec-head" },
 					h("div", { className: "s2p2g-eyebrow" }, "Grilling round — recorded"),
-					h("div", { className: "s2p2g-rec-title" }, `Round ${args.progress?.round ?? "?"} · ${args.progress?.decisionsOpen ?? "?"} decisions open`),
+					h("div", { className: "s2p2g-rec-title" }, `Round ${roundNo} · ${open} decisions open`),
 				),
 				args.questions.map((q, i) => {
 					const answer = byId.get(q.id);
@@ -698,7 +701,8 @@ window.__ModuleLoader__.load({
 
 		/* ---------------- registration ---------------- */
 
-		/** Chain routing: claim the composer only for grill: question batches. */
+		/** Chain routing: claim the composer only for grilling rounds (every
+		 * question id carries the grill: prefix; anything else declines). */
 		function selectGrill({ interactions }) {
 			const found = (interactions ?? []).find((i) => i && i.kind === "question");
 			const questions = found?.payload?.questions;
