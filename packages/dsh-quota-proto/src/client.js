@@ -505,7 +505,7 @@ window.__ModuleLoader__.load({
       { v: "E", slot: "conversation.input.dock", opts: { name: "dsh-quota-proto-float", order: 99 }, comp: FloatingCard },
     ];
 
-    exports.inject = ["@deepseek-ai/dsh-client-runtime"];
+    exports.inject = ["slots"];
     exports.apply = (ctx) => {
       refresh();
       const timer = setInterval(advance, 1000);
