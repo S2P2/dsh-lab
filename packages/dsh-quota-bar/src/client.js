@@ -1,9 +1,13 @@
 /**
- * dsh-quota-bar browser half: the GLM quota dock bar (prototype variant A,
- * winner of the slot/form bake-off — see issue #1 and branch proto/quota-bar-slots).
+ * dsh-quota-bar browser half: the GLM quota sidebar card (prototype variant C
+ * — the dogfooding pivot: the dock bar proved distracting, so the reading
+ * moved to the always-glanceable sidebar footer; see issue #1).
  *
- * Renders into conversation.input.dock (order 12, beside GoalBar):
- *   ⚡ GLM  5h [▮] 42% 14:30   7d [▮] 71% Mon 18 09:00   🔧 [▮] 12% Mon 25 00:00
+ * Renders into sidebar.footer.action:
+ *   ⚡ GLM
+ *   5h [▮] 42%  14:30
+ *   7d [▮] 71%  Mon 18 09:00
+ *   🔧 [▮] 12%  Mon 25 00:00
  *
  * Data: GET /dsh-quota-bar/reading (host half fetches upstream; this only
  * talks to the same origin). 60s poll + refetch on window focus. Silent
@@ -121,14 +125,23 @@ window.__ModuleLoader__.load({
       // Silent degrade: no reading ever -> render nothing at all.
       if (!s.reading) return null;
       const dim = s.stale ? "0.45" : "1";
-      const seg = (w) => {
+      const row = (w) => {
         const d = s.reading[w.key];
         if (!d) return null;
         return h(
-          "span",
-          { style: { whiteSpace: "nowrap" } },
-          h("span", { style: { color: DIM, fontSize: "10px", marginRight: "4px" } }, w.label),
-          d.pct === null ? null : h(Bar, { pct: d.pct }),
+          "div",
+          {
+            key: w.key,
+            style: {
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              fontSize: "10px",
+              whiteSpace: "nowrap",
+            },
+          },
+          h("span", { style: { color: DIM, width: "16px", flex: "none" } }, w.label),
+          d.pct === null ? null : h(Bar, { pct: d.pct, w: 52 }),
           d.pct === null
             ? null
             : h(
@@ -136,9 +149,10 @@ window.__ModuleLoader__.load({
                 {
                   style: {
                     color: col(d.pct),
-                    fontSize: "10px",
                     fontVariantNumeric: "tabular-nums",
-                    marginLeft: "4px",
+                    width: "26px",
+                    flex: "none",
+                    textAlign: "right",
                   },
                 },
                 d.pct + "%"
@@ -147,50 +161,44 @@ window.__ModuleLoader__.load({
             ? null
             : h(
                 "span",
-                { style: { color: DIM, fontSize: "10px", marginLeft: "5px" } },
+                { style: { color: DIM, fontSize: "9px", marginLeft: "auto" } },
                 w.resetFmt(d.resetAt)
               )
         );
       };
-      // GoalBar's dock pattern: wrapper inset to the composer card's bounds,
-      // then an opaque floating card (—dsw-specific-tip surface) centered in
-      // it. A full-width strip with bg-base left a translucent seam over
-      // scrolled text; a floating card has no seam.
+      // Sidebar footer card: opaque —dsw-specific-tip surface, stacked rows
+      // (prototype variant C shape). Full width of the footer action area.
       return h(
         "div",
         {
+          title: s.error ? "last error: " + s.error : undefined,
           style: {
-            boxSizing: "border-box",
-            width:
-              "calc(100% - var(--dsh-composer-side-clearance) - var(--dsh-composer-side-clearance) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset))",
-            margin: "0 auto",
+            padding: "6px 10px",
+            border: "1px solid " + BORDER,
+            borderRadius: "10px",
+            background: "var(--dsw-specific-tip, " + BG + ")",
+            fontFamily: MONO,
+            userSelect: "none",
+            opacity: dim,
+            transition: "opacity .3s",
           },
         },
         h(
           "div",
           {
-            title: s.error ? "last error: " + s.error : undefined,
             style: {
               display: "flex",
               alignItems: "center",
-              justifyContent: "center",
-              gap: "12px",
-              width: "fit-content",
-              maxWidth: "100%",
-              margin: "0 auto",
-              padding: "3px 14px",
-              border: "1px solid " + BORDER,
-              borderRadius: "10px",
-              background: "var(--dsw-specific-tip, " + BG + ")",
-              fontFamily: MONO,
-              userSelect: "none",
-              opacity: dim,
-              transition: "opacity .3s",
+              gap: "4px",
+              color: DIM,
+              fontSize: "10px",
+              marginBottom: "4px",
             },
           },
-          h("span", { style: { color: DIM, fontSize: "10px", marginRight: "2px" } }, "\u26A1 GLM"),
-          WINDOWS.map((w) => seg(w))
-        )
+          "\u26A1 GLM",
+          s.reading.plan ? h("span", { style: { fontSize: "9px" } }, "· " + s.reading.plan) : null
+        ),
+        WINDOWS.map((w) => row(w))
       );
     };
 
@@ -204,9 +212,9 @@ window.__ModuleLoader__.load({
         if (document.visibilityState === "visible") poll();
       };
       document.addEventListener("visibilitychange", onFocus);
-      ctx.slots.inject("conversation.input.dock", function* () {
+      ctx.slots.inject("sidebar.footer.action", function* () {
         yield ctx.slots.register(
-          { name: "conversation.input.dock", id: "quota-bar", order: 12 },
+          { name: "sidebar.footer.action", id: "quota-bar" },
           QuotaBar
         );
       });

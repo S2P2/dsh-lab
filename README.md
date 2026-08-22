@@ -12,7 +12,7 @@ Skills shape agent behavior through text; they can't register tools, render UI, 
 
 | Package | Status | What |
 |---|---|---|
-| [`packages/dsh-quota-bar`](packages/dsh-quota-bar) | 🌱 v0.1.0 · [spec #1](https://github.com/S2P2/dsh-lab/issues/1) (done) | GLM Coding Plan quota bar above the composer: 5h/weekly/tools windows + reset times in a theme-native card. Host-side fetch (credentials-service key resolution) over a loopback route; parser unit-tested. Port of proven pi-config statusline logic. |
+| [`packages/dsh-quota-bar`](packages/dsh-quota-bar) | 🌱 v0.1.x · [spec #1](https://github.com/S2P2/dsh-lab/issues/1) (done) | GLM Coding Plan quota card in the sidebar footer: 5h/weekly/tools windows + reset times in a theme-native card. Host-side fetch (credentials-service key resolution) over a loopback route; parser unit-tested. Port of proven pi-config statusline logic. |
 | [`packages/dsh-grilling-card`](packages/dsh-grilling-card) | 🌱 scaffold · 📋 [spec #2](https://github.com/S2P2/dsh-lab/issues/2) | Rich grilling/interview question UI: recommended answers, one-click accept, round-at-a-time, frontier meter. Designed MCP-elicitation-compatible. |
 | `packages/dsh-glossary` | 📋 [spec #3](https://github.com/S2P2/dsh-lab/issues/3) | Context glossary surfaces: term sidebar, chatbox autocomplete, avoid-list flagging with suggestions. |
 | `packages/dsh-wayfinder-map` | 📋 [spec #4](https://github.com/S2P2/dsh-lab/issues/4) | Decision-ticket map with blocking edges (wayfinder visualization). |
