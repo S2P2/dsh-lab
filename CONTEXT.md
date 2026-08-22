@@ -1,6 +1,6 @@
 # dsh-lab
 
-Experimental DeepSeek Harness (DSH) plugin lab: one package per plugin. This context covers the shared vocabulary of the plugins built here, currently centered on quota visibility (`dsh-quota-bar`).
+Experimental DeepSeek Harness (DSH) plugin lab: one package per plugin. This context covers the shared vocabulary of the plugins built here — currently quota visibility (`dsh-quota-bar`) and grilling cards (`dsh-grilling-card`).
 
 ## Language
 
@@ -55,3 +55,33 @@ _Avoid_: status line (pi heritage term), capsule, ring, floating card (other plu
 **Reading**:
 A normalized snapshot of one provider's window states at a point in time, fetched from the provider's quota endpoint.
 _Avoid_: measurement (suggests local metering), usage (a field within a reading).
+
+### Grilling
+
+**Grilling Card**:
+The structured question card a grilling round is answered in: full round overview, one focused editor, frontier meter.
+_Avoid_: form, questionnaire, elicitation panel.
+
+**Round**:
+One batch of frontier questions asked together; answering it settles decisions and moves the frontier.
+_Avoid_: batch, page (the generic pager's unit).
+
+**Frontier**:
+The set of decisions whose prerequisites are settled — the questions askable now. The frontier meter shows rounds elapsed versus estimated and how many decisions remain open.
+_Avoid_: backlog, queue.
+
+**Recommendation**:
+The agent's proposed answer to a question: a starred option, or a prose Draft for narrative questions. Every question carries one.
+_Avoid_: suggestion, default, preferred answer.
+
+**Draft**:
+The agent's proposed prose answer to a narrative question, accepted by agreeing or rejected by disagreeing with a comment.
+_Avoid_: prefill, autocompletion.
+
+**Comment**:
+Optional free text attached to any answer; required when disagreeing with a Draft.
+_Avoid_: note, caveat, custom answer (a wire-level term).
+
+**Recorded Round**:
+The read-only rendering of a settled round kept in the conversation transcript for review: questions, options, recommendations, and answers in one flat view.
+_Avoid_: receipt, history block, tool result.
