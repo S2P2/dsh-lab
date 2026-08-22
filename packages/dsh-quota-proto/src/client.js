@@ -502,7 +502,10 @@ window.__ModuleLoader__.load({
       { v: "B", slot: "conversation.session.header.actions", opts: { name: "dsh-quota-proto-header" }, comp: HeaderChip },
       { v: "C", slot: "sidebar.footer.action", opts: { name: "dsh-quota-proto-sidebar" }, comp: SidebarFooter },
       { v: "D", slot: "conversation.input.right", opts: { name: "dsh-quota-proto-ring" }, comp: InputRing },
-      { v: "E", slot: "conversation.input.dock", opts: { name: "dsh-quota-proto-float", order: 99 }, comp: FloatingCard },
+      // E renders position:fixed from wherever it mounts; shell.overlay is the
+      // app-shell floating slot (dshmarket/quota-panel pattern) and always renders,
+      // so the capsule no longer depends on the composer dock being visible.
+      { v: "E", slot: "shell.overlay", opts: { name: "dsh-quota-proto-float" }, comp: FloatingCard },
     ];
 
     exports.inject = ["slots"];
@@ -522,9 +525,11 @@ window.__ModuleLoader__.load({
           refresh();
         }
       }
+      // The switcher is the diagnostic readout: it must render even when every
+      // seat under test fails, so it lives in the app-shell overlay slot.
       try {
-        ctx.slots.inject("conversation.input.dock", function* () {
-          yield ctx.slots.register({ name: "dsh-quota-proto-switcher", order: 100 }, Switcher);
+        ctx.slots.inject("shell.overlay", function* () {
+          yield ctx.slots.register({ name: "dsh-quota-proto-switcher" }, Switcher);
         });
       } catch (e) {
         /* switcher is best-effort */
