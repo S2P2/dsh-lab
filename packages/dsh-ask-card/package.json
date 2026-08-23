@@ -1,0 +1,23 @@
+{
+  "name": "@s2p2/dsh-ask-card",
+  "version": "0.0.1",
+  "description": "Rich transcript card for DSH's stock ask_user_question tool: shadows the generic IN/OUT tool row with a question/answer card when expanded. Collapsed-row behavior and the pending-question composer stay identical.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web"
+    }
+  },
+  "files": ["lib", "cordis.patch.yml", "README.md"],
+  "keywords": ["dsh", "deepseek-harness", "plugin", "ask-user-question", "ui"],
+  "license": "MIT"
+}

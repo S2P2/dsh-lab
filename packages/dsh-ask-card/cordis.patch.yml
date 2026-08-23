@@ -1,0 +1,10 @@
+# Plugin rows contributed by @s2p2/dsh-ask-card.
+# Consumed by a profile that lists this package in its bundles or via
+# `dsh plugin --profile web add @s2p2/dsh-ask-card`.
+#
+# Client-only plugin: the loader entry makes the web shell materialize
+# ./lib/client.js (dsh.client declaration), whose apply() shadows the stock
+# ask_user_question transcript row in the tool.call.toolview slot.
+- insert:
+    - id: dsh-ask-card
+      name: '@s2p2/dsh-ask-card'
