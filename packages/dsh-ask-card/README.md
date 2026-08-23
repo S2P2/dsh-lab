@@ -4,7 +4,8 @@ Rich transcript card for the stock `ask_user_question` tool. Collapsed, the row 
 pixel-identical to stock (same DisclosureRow chrome, tokens, summaries, running sweep,
 state dots). Expanded, instead of the generic IN/OUT JSON card it renders a read-only
 question/answer card: every asked question with its options, the user's choices
-highlighted, recommended badges (`(recommended)` suffix convention), custom answers,
+highlighted, recommended badges (`(recommended)` suffix convention), custom answers
+(highlighted like a selected option so free-text answers stand out while reviewing),
 multi-select checkboxes, skipped questions, and pending/cancelled/interrupted chips.
 
 Any payload it cannot parse falls back to the exact stock IN/OUT card, so a transcript

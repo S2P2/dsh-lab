@@ -64,8 +64,8 @@ window.__ModuleLoader__.load({
 .kQa29_optDesc{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px;overflow-wrap:anywhere}
 .kQa29_checkbox{border:1.5px solid var(--dsw-alias-border-l3);border-radius:4px;width:14px;height:14px;margin-top:4px;flex:none;place-items:center;display:grid;color:#fff}
 .kQa29_checkboxChecked{background:var(--dsw-alias-state-business-primary);border-color:var(--dsw-alias-state-business-primary)}
-.kQa29_answerBox{border-left:2px solid var(--dsw-alias-border-l3);color:var(--dsw-alias-label-secondary);white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:20px;margin:0 0 0 26px;padding:2px 0 2px 10px}
-.kQa29_answerLabel{color:var(--dsw-alias-label-caption);font-size:11px;line-height:16px;margin:0 0 0 26px}
+.kQa29_answerBox{border:1px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary);border-radius:10px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:20px;margin:0 0 0 26px;padding:6px 10px}
+.kQa29_answerLabel{color:var(--dsw-alias-state-business-primary);font-size:11px;line-height:16px;margin:0 0 0 26px}.kQa29_skippedLabel{color:var(--dsw-alias-label-caption);font-size:11px;line-height:16px;margin:0 0 0 26px}
 .kQa29_errorLine{color:var(--dsw-alias-state-error-primary);white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;line-height:18px;margin:10px 16px 0}
 .kQa29_cardEnd{height:12px;flex:none}
 .kQa29_ioCard{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-markdown-code-block);font:var(--dsw-font-markdown-code-block-small);border-radius:12px;flex-direction:column;margin:4px 0 4px 4px;display:flex}
@@ -126,6 +126,7 @@ window.__ModuleLoader__.load({
 			root: "kQa29_root",
 			row: "kQa29_row",
 			sep: "kQa29_sep",
+			skippedLabel: "kQa29_skippedLabel",
 			summary: "kQa29_summary",
 			visuallyHidden: "kQa29_visuallyHidden"
 		};
@@ -308,7 +309,7 @@ window.__ModuleLoader__.load({
 						})
 						: null,
 					answer !== undefined && answer.custom === undefined && selected.length === 0
-						? jsx("div", { className: styles.answerLabel, children: t("card.skipped") })
+						? jsx("div", { className: styles.skippedLabel, children: t("card.skipped") })
 						: null
 				]
 			});
