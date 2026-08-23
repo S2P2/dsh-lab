@@ -40,6 +40,8 @@ dsh plugin --profile web add ../dsh-lab/packages/dsh-quota-bar
 
 Note: pnpm 11+ gates freshly published packages behind `minimumReleaseAge` (24h default). For your own freshly-published packages set `minimumReleaseAge: 0` in the profile's `pnpm-workspace.yaml` (see [dsh-web-ui#71](https://github.com/zhu1090093659/dsh-web-ui/issues/71)).
 
+Releases run through changesets: `pnpm changeset` in package-changing PRs, merge the auto-maintained "Version Packages" PR, and the Release workflow bumps versions, writes CHANGELOGs, and tags. npm publishing flips on (`pnpm changeset publish` + `NPM_TOKEN`) when the first package ships.
+
 ## Layout
 
 ```

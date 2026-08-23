@@ -37,6 +37,10 @@ dsh plugin --profile web add ../dsh-lab/packages/dsh-grilling-card
 
 Note: pnpm 11+ gates freshly published packages behind `minimumReleaseAge` (24h default). For your own freshly-published packages set `minimumReleaseAge: 0` in the profile's `pnpm-workspace.yaml` (see [dsh-web-ui#71](https://github.com/zhu1090093659/dsh-web-ui/issues/71)).
 
+### Releases
+
+Changesets version the packages. A PR that changes anything under `packages/` adds a changeset in the same PR (`pnpm changeset`). Merging to `main` keeps the auto-maintained "Version Packages" PR updated; merging that bumps versions, writes `CHANGELOG.md` files, and tags. Tags only for now — npm publishing flips on with the first shipped package.
+
 ## Layout
 
 ```
