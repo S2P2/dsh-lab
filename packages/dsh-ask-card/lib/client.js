@@ -391,7 +391,10 @@ window.__ModuleLoader__.load({
 				: done && state === "ok" && answers === null
 					? null
 					: chipOf({ done, code, state, answeredCount: Math.max(answered, 0), total }, t);
-			const errorText = cardMode && done && state === "error" && output !== null ? firstLine(output) : null;
+			// Deliberate cancel/abort already carries its own chip; the raw error
+		// line below the questions would only duplicate it.
+		const settledCode = code === "ASK_CANCELLED" || code === "ASK_ABORTED";
+		const errorText = cardMode && done && state === "error" && output !== null && !settledCode ? firstLine(output) : null;
 			const status = stateStatus(state, t);
 			const failureLine = state === "error" ? summary : null;
 			const summaryText = failureLine ?? summary;
