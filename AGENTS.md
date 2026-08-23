@@ -65,6 +65,10 @@ Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agent
 
 ## Agent conventions
 
+### DSH plugin prior art
+
+Researching, designing, or materially changing a DSH plugin: use `docs/agents/dsh-plugin-landscape.md` as the ecosystem map for existing plugin categories, boundaries, recurring shapes, and adjacent prior art.
+
 ### AI-assisted content
 
 Mark issues, PR descriptions, comments, and commit messages drafted by an AI agent with S2P2's AI-assisted markers. Do not mark source files or docs. See `docs/agents/ai-assisted-content.md`.
