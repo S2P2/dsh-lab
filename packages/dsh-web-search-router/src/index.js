@@ -39,7 +39,6 @@ export const Config = z.object({
   }),
   zai: z.object({
     apiKeyEnv: z.string().default('ZAI_API_KEY'),
-    engine: z.string().default('search-prime'),
   }),
   exa: z.object({ apiKeyEnv: z.string().default('EXA_API_KEY') }),
   tavily: z.object({ apiKeyEnv: z.string().default('TAVILY_API_KEY') }),
@@ -74,7 +73,7 @@ export function apply(ctx, config) {
       maxOutputTokens: config.codex.maxOutputTokens,
       timeoutMs,
     }),
-    createZaiBackend({ resolveKey: keyResolver(ctx, config.zai.apiKeyEnv), engine: config.zai.engine, timeoutMs }),
+    createZaiBackend({ resolveKey: keyResolver(ctx, config.zai.apiKeyEnv), timeoutMs }),
     createExaBackend({ resolveKey: keyResolver(ctx, config.exa.apiKeyEnv), timeoutMs }),
     createTavilyBackend({ resolveKey: keyResolver(ctx, config.tavily.apiKeyEnv), timeoutMs }),
     createDdgBackend({ timeoutMs }),

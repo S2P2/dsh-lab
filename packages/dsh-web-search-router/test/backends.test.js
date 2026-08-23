@@ -89,31 +89,95 @@ test('codex: 401 throws with status for chain rotation', async () => {
   await assert.rejects(backend.search({ query: 'q' }, SIGNAL), (error) => error.status === 401)
 })
 
-test('zai: posts the documented REST shape and maps search_result', async () => {
+/** SSE line built by real JSON encoding at every layer (no concat escaping traps). */
+const SSE = (id, result) => `id:1\nevent:message\ndata:${JSON.stringify({ jsonrpc: '2.0', id, result })}\n\n`
+
+/** Observed live shape: text is the array, JSON-stringified TWICE. */
+const SEARCH_ITEMS = [
+  { title: 'T', link: 'https://z/1', content: 'snippet text', refer: 'ref_1' },
+  { title: 'T2', link: 'https://z/2', content: 'second', refer: 'ref_2' },
+]
+const DOUBLE_ENCODED_TEXT = JSON.stringify(JSON.stringify(SEARCH_ITEMS))
+
+/** Stateful fake of the z.ai MCP streamable-http server (plan-covered wire). */
+function fakeZaiMcp() {
+  const state = { session: undefined, initializeCalls: 0, calls: [] }
+  const route = {
+    match: 'https://api.z.ai/api/mcp/web_search_prime/mcp',
+    handle({ init }) {
+      const body = JSON.parse(init.body)
+      state.calls.push(body.method)
+      if (body.method === 'initialize') {
+        state.initializeCalls += 1
+        state.session = `sess-${state.initializeCalls}`
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: (name) => (name === 'mcp-session-id' ? state.session : null) },
+          text: async () => SSE(body.id, { protocolVersion: '2024-11-05', capabilities: {}, serverInfo: {} }),
+        }
+      }
+      if (body.method === 'notifications/initialized') {
+        if (init.headers['mcp-session-id'] !== state.session) return jsonResponse(400, { error: 'bad session' })
+        return { ok: true, status: 202, headers: { get: () => null }, text: async () => '' }
+      }
+      if (body.method === 'tools/call') {
+        if (init.headers['mcp-session-id'] !== state.session) return jsonResponse(404, { error: 'session expired' })
+        if (body.params.name !== 'web_search_prime') return jsonResponse(400, { error: 'unknown tool' })
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: () => null },
+          text: async () => SSE(body.id, { content: [{ type: 'text', text: DOUBLE_ENCODED_TEXT }] }),
+        }
+      }
+      return jsonResponse(400, { error: `unexpected ${body.method}` })
+    },
+  }
+  return { route, state }
+}
+
+test('zai: speaks the MCP wire — initialize, initialized, tools/call web_search_prime', async () => {
+  const mcp = fakeZaiMcp()
+  const fetchImpl = fakeFetch([mcp.route])
+  const backend = createZaiBackend({ resolveKey: async () => 'zai-key', fetchImpl })
+  assert.deepEqual(await backend.availability(), { ok: true })
+  const out = await backend.search({ query: 'what is dsh', maxResults: 1 }, SIGNAL)
+  assert.deepEqual(mcp.state.calls, ['initialize', 'notifications/initialized', 'tools/call'])
+  assert.deepEqual(out.sources, [{ url: 'https://z/1', title: 'T', snippet: 'snippet text' }])
+})
+
+test('zai: reuses the MCP session across searches', async () => {
+  const mcp = fakeZaiMcp()
+  const fetchImpl = fakeFetch([mcp.route])
+  const backend = createZaiBackend({ resolveKey: async () => 'zai-key', fetchImpl })
+  await backend.search({ query: 'one' }, SIGNAL)
+  await backend.search({ query: 'two' }, SIGNAL)
+  assert.equal(mcp.state.initializeCalls, 1)
+  assert.deepEqual(mcp.state.calls, ['initialize', 'notifications/initialized', 'tools/call', 'tools/call'])
+})
+
+test('zai: a stale MCP session is re-established once and the search retried', async () => {
+  const mcp = fakeZaiMcp()
+  let expireNextCall = true
   const fetchImpl = fakeFetch([
     {
-      match: 'https://api.z.ai/api/paas/v4/web_search',
-      handle: ({ init }) => {
-        if (init.headers.authorization !== 'Bearer zai-key') return jsonResponse(401, { code: 401, message: 'bad key' })
-        return jsonResponse(200, {
-          id: 't1',
-          created: 1,
-          search_result: [
-            { title: 'T', content: 'snippet text', link: 'https://z/1', publish_date: '2026-08-01' },
-          ],
-        })
+      match: 'https://api.z.ai/api/mcp/web_search_prime/mcp',
+      handle(args) {
+        const body = JSON.parse(args.init.body)
+        if (body.method === 'tools/call' && expireNextCall) {
+          expireNextCall = false
+          mcp.state.session = 'rotated-by-server'
+          return jsonResponse(404, { error: 'session expired' })
+        }
+        return mcp.route.handle(args)
       },
     },
   ])
   const backend = createZaiBackend({ resolveKey: async () => 'zai-key', fetchImpl })
-  assert.deepEqual(await backend.availability(), { ok: true })
-  const out = await backend.search({ query: 'q', maxResults: 3 }, SIGNAL)
-  const [call] = fetchImpl.calls
-  const body = JSON.parse(call.init.body)
-  assert.equal(body.search_engine, 'search-prime')
-  assert.equal(body.search_query, 'q')
-  assert.equal(body.count, 3)
-  assert.deepEqual(out.sources, [{ url: 'https://z/1', title: 'T', snippet: 'snippet text', publishedAt: '2026-08-01' }])
+  const out = await backend.search({ query: 'q' }, SIGNAL)
+  assert.equal(mcp.state.initializeCalls, 2, 're-initialized after session loss')
+  assert.equal(out.sources.length, 2)
 })
 
 test('zai: missing key is unavailable with the env name in the reason', async () => {
@@ -123,12 +187,44 @@ test('zai: missing key is unavailable with the env name in the reason', async ()
   assert.match(availability.reason, /ZAI_API_KEY/)
 })
 
-test('zai: error envelope throws with the API status', async () => {
+test('zai: an HTTP failure on the MCP call throws with the status', async () => {
+  const mcp = fakeZaiMcp()
+  let failCalls = true
   const fetchImpl = fakeFetch([
-    { match: 'https://api.z.ai/api/paas/v4/web_search', handle: () => jsonResponse(429, { code: 429, message: 'rate' }) },
+    {
+      match: 'https://api.z.ai/api/mcp/web_search_prime/mcp',
+      handle(args) {
+        const body = JSON.parse(args.init.body)
+        if (body.method === 'tools/call' && failCalls) return jsonResponse(429, { message: 'rate limited' })
+        return mcp.route.handle(args)
+      },
+    },
   ])
   const backend = createZaiBackend({ resolveKey: async () => 'k', fetchImpl })
   await assert.rejects(backend.search({ query: 'q' }, SIGNAL), (error) => error.status === 429)
+})
+
+test('zai: malformed tool payload text fails cleanly', async () => {
+  const mcp = fakeZaiMcp()
+  const fetchImpl = fakeFetch([
+    {
+      match: 'https://api.z.ai/api/mcp/web_search_prime/mcp',
+      handle(args) {
+        const body = JSON.parse(args.init.body)
+        if (body.method === 'tools/call') {
+          return {
+            ok: true,
+            status: 200,
+            headers: { get: () => null },
+            text: async () => SSE(body.id, { content: [{ type: 'text', text: 'not json' }] }),
+          }
+        }
+        return mcp.route.handle(args)
+      },
+    },
+  ])
+  const backend = createZaiBackend({ resolveKey: async () => 'k', fetchImpl })
+  await assert.rejects(backend.search({ query: 'q' }, SIGNAL), /zai/)
 })
 
 test('exa: posts the search body and maps highlights to snippets', async () => {

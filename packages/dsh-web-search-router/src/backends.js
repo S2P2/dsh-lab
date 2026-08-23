@@ -14,8 +14,8 @@
 /** Wire endpoint of the Codex standalone search (dsh-codex prior art). */
 export const CODEX_SEARCH_URL = 'https://chatgpt.com/backend-api/codex/alpha/search'
 
-/** z.ai Web Search REST endpoint (docs.z.ai/api-reference/tools/web-search). */
-export const ZAI_SEARCH_URL = 'https://api.z.ai/api/paas/v4/web_search'
+/** z.ai MCP `web_search_prime` endpoint — the search wire the GLM Coding Plan covers. */
+export const ZAI_MCP_URL = 'https://api.z.ai/api/mcp/web_search_prime/mcp'
 
 /** Exa search endpoint. */
 export const EXA_SEARCH_URL = 'https://api.exa.ai/search'
@@ -183,17 +183,106 @@ export function createCodexBackend(options) {
   }
 }
 
-/** z.ai backend over the documented Web Search REST endpoint. */
+/**
+ * Parse the last matching JSON-RPC payload out of an MCP streamable-http
+ * response body: SSE `data:` lines when event-stream, the whole body when JSON.
+ */
+export function parseMcpPayload(text, id) {
+  const candidates = []
+  for (const line of text.split('\n')) {
+    const trimmed = line.trim()
+    if (trimmed.startsWith('data:')) {
+      try {
+        candidates.push(JSON.parse(trimmed.slice(5).trim()))
+      } catch {
+        /* skip non-JSON keepalive data */
+      }
+    }
+  }
+  if (candidates.length === 0 && text.trimStart().startsWith('{')) {
+    try {
+      candidates.push(JSON.parse(text))
+    } catch {
+      /* fall through */
+    }
+  }
+  const byId = candidates.find((payload) => payload?.id === id)
+  return byId ?? candidates[candidates.length - 1]
+}
+
+/**
+ * z.ai backend over the MCP `web_search_prime` streamable-http endpoint — the
+ * search wire the GLM Coding Plan covers. (The documented REST endpoint
+ * `paas/v4/web_search` is the separately billed Tool API; a plan key gets
+ * "Insufficient balance" there. Verified live 2026-08-23.) The MCP session is
+ * established lazily and reused; a stale session is re-established once.
+ */
 export function createZaiBackend(options) {
   const {
     resolveKey,
     apiKeyEnv = 'ZAI_API_KEY',
-    engine = 'search-prime',
-    apiUrl = ZAI_SEARCH_URL,
+    mcpUrl = ZAI_MCP_URL,
     fetchImpl = fetch,
     timeoutMs = DEFAULT_TIMEOUT_MS,
   } = options
   const id = 'zai'
+  let sessionId
+  let nextId = 0
+
+  async function rpc(key, method, params, signal, { notification = false } = {}) {
+    const body = {
+      jsonrpc: '2.0',
+      ...(notification ? {} : { id: (nextId += 1) }),
+      method,
+      ...(params === undefined ? {} : { params }),
+    }
+    let response
+    try {
+      response = await fetchImpl(mcpUrl, {
+        method: 'POST',
+        redirect: 'error',
+        headers: {
+          authorization: `Bearer ${key}`,
+          'content-type': 'application/json',
+          accept: 'application/json, text/event-stream',
+          ...(sessionId === undefined ? {} : { 'mcp-session-id': sessionId }),
+        },
+        body: JSON.stringify(body),
+        signal: attemptSignal(signal, timeoutMs),
+      })
+    } catch (error) {
+      throw labelAbort(error, id, timeoutMs)
+    }
+    const headerSession = response.headers?.get?.('mcp-session-id')
+    if (typeof headerSession === 'string' && headerSession.length > 0) sessionId = headerSession
+    if (!response.ok) await throwHttpResponse(id, response)
+    if (notification) return undefined
+    const payload = parseMcpPayload(await response.text(), body.id)
+    if (payload === undefined) throw new Error(`${id}: MCP response carried no JSON-RPC payload`)
+    if (payload.error) {
+      throw Object.assign(new Error(`${id}: ${payload.error.message ?? 'MCP error'}`), { status: undefined })
+    }
+    return payload.result
+  }
+
+  async function ensureSession(key, signal) {
+    if (sessionId !== undefined) return
+    await rpc(key, 'initialize', {
+      protocolVersion: '2025-03-26',
+      capabilities: {},
+      clientInfo: { name: 'dsh-web-search-router', version: '0.1.0' },
+    }, signal)
+    await rpc(key, 'notifications/initialized', undefined, signal, { notification: true })
+  }
+
+  async function callTool(key, request, signal) {
+    await ensureSession(key, signal)
+    return await rpc(key, 'tools/call', {
+      name: 'web_search_prime',
+      arguments: { search_query: request.query },
+    }, signal)
+  }
+
   return {
     id,
     async availability() {
@@ -203,28 +292,40 @@ export function createZaiBackend(options) {
     async search(request, signal) {
       const key = await resolveKey()
       if (!key) throw Object.assign(new Error(`${id} requires ${apiKeyEnv}`), { status: 401 })
-      const body = {
-        search_engine: engine,
-        search_query: request.query,
-        count: Math.min(request.maxResults ?? 10, 50),
-      }
-      let response
+      let result
       try {
-        response = await fetchImpl(apiUrl, {
-          method: 'POST',
-          redirect: 'error',
-          headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json', accept: 'application/json' },
-          body: JSON.stringify(body),
-          signal: attemptSignal(signal, timeoutMs),
-        })
+        result = await callTool(key, request, signal)
       } catch (error) {
-        throw labelAbort(error, id, timeoutMs)
+        // A dropped server session surfaces as a 4xx on the reused session id;
+        // re-establish once and retry before giving the chain the failure.
+        if (typeof error?.status === 'number' && error.status >= 400 && error.status < 500 && sessionId !== undefined) {
+          sessionId = undefined
+          result = await callTool(key, request, signal)
+        } else {
+          throw error
+        }
       }
-      if (!response.ok) await throwHttpResponse(id, response)
-      const payload = await response.json()
+      if (result?.isError === true) throw new Error(`${id}: web_search_prime returned a tool error`)
+      const text = Array.isArray(result?.content)
+        ? result.content.find((part) => part?.type === 'text')?.text
+        : undefined
+      if (typeof text !== 'string') throw new Error(`${id}: web_search_prime returned no text content`)
+      // The live server JSON-encodes the result array one extra time (text is
+      // a stringified JSON string); parse until a non-string emerges.
+      let items = text
+      for (let depth = 0; typeof items === 'string' && depth < 3; depth += 1) {
+        try {
+          items = JSON.parse(items)
+        } catch (error) {
+          if (depth === 0) throw new Error(`${id}: web_search_prime payload was not valid JSON`, { cause: error })
+          break
+        }
+      }
+      if (typeof items === 'string') throw new Error(`${id}: web_search_prime payload was not valid JSON`)
+      if (!Array.isArray(items)) items = items?.search_result
       const sources = []
       const seen = new Set()
-      for (const item of payload.search_result ?? []) {
+      for (const item of items ?? []) {
         const url = citeableUrl(item?.link)
         if (url === undefined || seen.has(url)) continue
         seen.add(url)
@@ -232,7 +333,6 @@ export function createZaiBackend(options) {
           url,
           ...(typeof item.title === 'string' && item.title ? { title: item.title } : {}),
           ...(typeof item.content === 'string' && item.content ? { snippet: item.content } : {}),
-          ...(typeof item.publish_date === 'string' && item.publish_date ? { publishedAt: item.publish_date } : {}),
         })
       }
       return capSources(sources, request.maxResults)

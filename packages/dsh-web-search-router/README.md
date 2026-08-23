@@ -7,7 +7,7 @@ session's model, then walks a deterministic fallback chain — all in-package:
 | Backend | Wire | Key | Serves when |
 |---|---|---|---|
 | `codex` | Codex standalone search (`chatgpt.com/backend-api/codex/alpha/search`) | shared dsh-codex OAuth document (`$DSH_HOME/.openai-codex-auth.json`) | active model is `openai-codex/*` |
-| `zai` | z.ai Web Search REST (`api.z.ai/api/paas/v4/web_search`, engine `search-prime`) | `ZAI_API_KEY` | active model is `zai/*` |
+| `zai` | z.ai MCP `web_search_prime` (streamable-http) — the search wire the **GLM Coding Plan covers** | `ZAI_API_KEY` | active model is `zai/*` |
 | `exa` | Exa search API | `EXA_API_KEY` | fallback chain, first keyed hop |
 | `tavily` | Tavily search API | `TAVILY_API_KEY` | fallback chain |
 | `ddg` | DuckDuckGo HTML (keyless scrape) | — | fallback chain, free tier |
@@ -53,7 +53,7 @@ chain above. Retuning is a config edit, not a release:
     modelRoutes: { openai-codex: codex, zai: zai }
     fallbackChain: [exa, tavily, ddg, searxng]
     codex: { model: gpt-5.6-sol, mode: cached, contextSize: medium, maxOutputTokens: 10000 }
-    zai: { apiKeyEnv: ZAI_API_KEY, engine: search-prime }
+    zai: { apiKeyEnv: ZAI_API_KEY }
     exa: { apiKeyEnv: EXA_API_KEY }
     tavily: { apiKeyEnv: TAVILY_API_KEY }
     searxng: { instances: [] }        # empty → public instance list
