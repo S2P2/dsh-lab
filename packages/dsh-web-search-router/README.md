@@ -7,6 +7,8 @@ session's model, then walks a deterministic fallback chain — all in-package:
 | Backend | Wire | Key | Serves when |
 |---|---|---|---|
 | `codex` | Codex standalone search (`chatgpt.com/backend-api/codex/alpha/search`) | shared dsh-codex OAuth document (`$DSH_HOME/.openai-codex-auth.json`) | active model is `openai-codex/*` |
+
+> ⚠️ The `codex` hop uses your ChatGPT subscription through a non-official client (requests are distinguishable from the official ones); community plugins report this class of usage can get an account restricted — treat the risk as yours.
 | `zai` | z.ai MCP `web_search_prime` (streamable-http) — the search wire the **GLM Coding Plan covers** | `ZAI_API_KEY` | active model is `zai/*` |
 | `exa` | Exa search API | `EXA_API_KEY` | fallback chain, first keyed hop |
 | `tavily` | Tavily search API | `TAVILY_API_KEY` | fallback chain |
