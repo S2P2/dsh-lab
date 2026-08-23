@@ -1,0 +1,10 @@
+# dsh bundle patch: inserts the web-search router into a profile's layer stack.
+# Select it as the web_search backend with a profile-patch override:
+#   - id: web
+#     config:
+#       searchProvider: web-search-router
+# Routing policy (modelRoutes, fallbackChain, per-backend knobs) is config on
+# this row, so retuning the chain is a YAML edit, not a release.
+- insert:
+    - id: dsh-web-search-router
+      name: '@s2p2/dsh-web-search-router'

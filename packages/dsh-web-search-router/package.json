@@ -1,0 +1,42 @@
+{
+  "name": "@s2p2/dsh-web-search-router",
+  "version": "0.1.0",
+  "description": "Model-conditional web search router for DSH: Codex search on Codex models, z.ai search on GLM, keyed Exa/Tavily then free DDG/SearXNG fallback — behind the native web_search tool.",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./router": "./src/router.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" }
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "files": ["src", "test", "cordis.patch.yml", "README.md"],
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "plugin",
+    "web-search",
+    "router",
+    "exa",
+    "tavily",
+    "duckduckgo",
+    "searxng",
+    "zai",
+    "codex"
+  ],
+  "license": "MIT",
+  "engines": { "node": ">=20" },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1-rc.1",
+    "@deepseek-ai/dsh-atomic-write": "^0.1.0-rc.7",
+    "@deepseek-ai/dsh-home-paths": "^0.1.0-rc.7",
+    "@deepseek-ai/dsh-web": "^0.1.0-rc.7",
+    "@deepseek-ai/schemastery": "^3.18.1-rc.1",
+    "@earendil-works/pi-ai": "^0.82.1"
+  }
+}

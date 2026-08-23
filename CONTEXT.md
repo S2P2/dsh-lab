@@ -1,6 +1,6 @@
 # dsh-lab
 
-Experimental DeepSeek Harness (DSH) plugin lab: one package per plugin. This context covers the shared vocabulary of the plugins built here — currently quota visibility (`dsh-quota-bar`) and grilling cards (`dsh-grilling-card`).
+Experimental DeepSeek Harness (DSH) plugin lab: one package per plugin. This context covers the shared vocabulary of the plugins built here — currently quota visibility (`dsh-quota-bar`), grilling cards (`dsh-grilling-card`), and web search routing (`dsh-web-search-router`).
 
 ## Language
 
@@ -85,3 +85,25 @@ _Avoid_: note, caveat, custom answer (a wire-level term).
 **Recorded Round**:
 The read-only rendering of a settled round kept in the conversation transcript for review: questions, options, recommendations, and answers in one flat view.
 _Avoid_: receipt, history block, tool result.
+
+### Web search routing
+
+**Router**:
+The single `WebSearchProvider` (`dsh-web-search-router`) registered on the `ctx.web` seam that decides, per search, which Backend serves it. Owns its whole chain in-package; never delegates to another provider (the seam has no provider-to-provider calls).
+_Avoid_: proxy, dispatcher, aggregator.
+
+**First Hop**:
+The Backend the attempt order starts with, matched by longest provider-id prefix from the calling session's model (`openai-codex/*` → codex, `zai/*` → zai). Unmatched models start at the Fallback Chain.
+_Avoid_: primary backend, preferred engine.
+
+**Fallback Chain**:
+The ordered Backend ids attempted after (or instead of) the First Hop: keyed engines first (exa, tavily), free keyless engines last (ddg, searxng). Configured on the plugin row, not coded.
+_Avoid_: pool, engine list, priority list.
+
+**Backend**:
+One wire implementation inside the Router: codex, zai, exa, tavily, ddg, searxng. Reports a cheap local `availability()` (key/credential presence — never a network call) and one `search()`; wire failures carry an HTTP status and optional cooldown.
+_Avoid_: engine (free-search vocabulary), provider (reserved for LLM providers above).
+
+**Provenance Note**:
+The line the Router appends to every result's content naming the Backend that served and every skipped or failed hop, so citations are honest: `Note: served by zai; failed codex (HTTP 429).`
+_Avoid_: attribution footer, engine note.
