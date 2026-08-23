@@ -76,32 +76,34 @@ const parameters = {
 	additionalProperties: false,
 };
 
+// Raw-register schema form: `required` is object-level string[] only
+// (assertSupportedJsonSchema rejects property-level `required: true` —
+// that form belongs to defineTool's spec input, which compiles it away).
 const outputSchema = {
 	type: "object",
 	properties: {
 		answers: {
 			type: "array",
-			required: true,
 			items: {
 				type: "object",
 				properties: {
-					id: { type: "string", required: true },
+					id: { type: "string" },
 					status: {
 						type: "string",
-						required: true,
 						enum: ["answered", "skipped", "unanswered"],
 					},
 					selected: {
 						type: "array",
-						required: true,
 						items: { type: "string" },
 					},
 					custom: { type: "string" },
 				},
+				required: ["id", "status", "selected"],
 				additionalProperties: false,
 			},
 		},
 	},
+	required: ["answers"],
 	additionalProperties: false,
 };
 
