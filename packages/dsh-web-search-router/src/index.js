@@ -87,6 +87,11 @@ export function apply(ctx, config) {
     resolveModel: createModelResolver(ctx),
     modelRoutes: config.modelRoutes,
     fallbackChain: config.fallbackChain,
+    // Provenance lives in the host log + the result's provenance field; the
+    // model-visible content gets a note only when the chain degraded (the
+    // stock web_search tool projects content/sources/truncated to the model,
+    // so a clean-serve note would be pure token cost).
+    onRouting: (note) => ctx.logger?.info?.('web-search-router: %s', note),
   })
 
   ctx.web.registerSearchProvider({

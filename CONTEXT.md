@@ -105,5 +105,5 @@ One wire implementation inside the Router: codex, zai, exa, tavily, ddg, searxng
 _Avoid_: engine (free-search vocabulary), provider (reserved for LLM providers above).
 
 **Provenance Note**:
-The line the Router appends to every result's content naming the Backend that served and every skipped or failed hop, so citations are honest: `Note: served by zai; failed codex (HTTP 429).`
+The routing outcome the Router records for every search — serving Backend, routed model, and every skipped or failed hop — carried on the result's `provenance` field and the host log; injected into model-visible content only when the chain degraded (clean serves stay silent to save context).
 _Avoid_: attribution footer, engine note.

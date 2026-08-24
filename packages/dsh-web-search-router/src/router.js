@@ -40,13 +40,14 @@ export function planAttempts(model, modelRoutes, fallbackChain) {
 export class WebSearchRouterProvider {
   /** @param {object} options */
   constructor(options) {
-    const { backends, resolveModel, modelRoutes, fallbackChain, now = () => Date.now() } = options
+    const { backends, resolveModel, modelRoutes, fallbackChain, now = () => Date.now(), onRouting } = options
     this.id = ROUTER_PROVIDER_ID
     this.#backends = backends
     this.#resolveModel = resolveModel
     this.#modelRoutes = modelRoutes
     this.#fallbackChain = fallbackChain
     this.#now = now
+    this.#onRouting = typeof onRouting === 'function' ? onRouting : () => {}
     this.#cooldowns = new Map()
   }
 
@@ -55,6 +56,7 @@ export class WebSearchRouterProvider {
   #modelRoutes
   #fallbackChain
   #now
+  #onRouting
   #cooldowns
 
   /** Cheap local usability check; must not make network calls. */
@@ -100,12 +102,23 @@ export class WebSearchRouterProvider {
     throw lastError ?? new Error('web-search-router: no usable backend in the chain')
   }
 
-  /** Prepend the serving backend, routing model, and any skip/failure notes to the result content. */
+  /**
+   * Decorate a served result with provenance. The full note always rides the
+   * result as a `provenance` field (survives the seam's spread for direct
+   * service callers) and is reported through `onRouting` (host log). It is
+   * injected into model-visible `content` ONLY when the chain degraded — the
+   * stock web_search tool projects content/sources/truncated to the model, so
+   * a clean-serve note would be pure token cost, while a degraded-serve note
+   * tells the model to trust the fallback tier's results accordingly.
+   */
   #withProvenance(result, id, notes, model) {
     const routed = model === undefined ? '' : ` (routed by ${model.provider}/${model.model})`
-    const provenance = `Note: served by ${id}${routed}${notes.length > 0 ? `; ${notes.join('; ')}` : ''}.`
-    const content = [result.content, provenance].filter((part) => part !== undefined && part !== '').join('\n\n')
-    return { ...result, content }
+    const provenance = `served by ${id}${routed}${notes.length > 0 ? `; ${notes.join('; ')}` : ''}`
+    this.#onRouting(provenance)
+    if (notes.length === 0) return { ...result, provenance }
+    const note = `Note: ${provenance}.`
+    const content = [result.content, note].filter((part) => part !== undefined && part !== '').join('\n\n')
+    return { ...result, provenance, content }
   }
 }
 

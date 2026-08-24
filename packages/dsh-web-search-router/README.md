@@ -15,12 +15,16 @@ session's model, then walks a deterministic fallback chain — all in-package:
 | `ddg` | DuckDuckGo HTML (keyless scrape) | — | fallback chain, free tier |
 | `searxng` | SearXNG instances (`format=json`, keyless) | — | fallback chain, free tail |
 
-Every result carries a provenance note naming the backend that served it plus
-any skipped or failed hops (`Note: served by zai; failed codex (HTTP 429).`).
-Any failure class (network, timeout, 401, 429, 5xx) rotates to the next hop; a
-429 with `Retry-After` cools that backend down for subsequent searches; a
-backend whose key (or Codex credential) is absent is skipped with a note, not
-fatal.
+Provenance is metadata-first: every search's routing outcome is reported to the host log and
+carried on the result's `provenance` field (`served by zai (routed by zai/glm-5.3)`), which
+survives the seam for direct service callers. It reaches the model-visible content **only when
+the chain degraded** (`Note: served by ddg; failed exa (HTTP 429); skipped codex (signed out
+of OpenAI Codex).`) — the stock `web_search` tool projects just content/sources/truncated to
+the model, so a clean-serve note would be pure token cost, while a degraded-serve note tells
+the model to trust the fallback tier's results accordingly. Any failure class (network,
+timeout, 401, 429, 5xx) rotates to the next hop; a 429 with `Retry-After` cools that backend
+down for subsequent searches; a backend whose key (or Codex credential) is absent is skipped
+with a note, not fatal.
 
 Spec of record: [S2P2/dsh-lab#8](https://github.com/S2P2/dsh-lab/issues/8).
 Model-detection decision: [ADR 0002](../../docs/adr/0002-web-search-router-model-detection.md) —

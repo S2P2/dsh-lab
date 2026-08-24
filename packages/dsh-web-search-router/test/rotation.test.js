@@ -129,10 +129,11 @@ test('unknown backend ids in the chain are noted, not fatal', async () => {
   assert.match(out.content, /served by ddg/)
 })
 
-test('a clean first-hop success carries only the serving note', async () => {
+test('a clean first-hop success injects nothing into content; provenance rides the result', async () => {
   const exa = fakeBackend('exa', { result: { sources: [{ url: 'https://x/1' }], truncated: false } })
   const out = await router({ backends: [exa] }).search({ query: 'q' })
-  assert.equal(out.content, 'Note: served by exa.')
+  assert.equal(out.content, undefined)
+  assert.equal(out.provenance, 'served by exa')
 })
 
 test('available() is a cheap local check with no network or key resolution', () => {
