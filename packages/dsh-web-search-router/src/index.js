@@ -125,7 +125,11 @@ export function apply(ctx, config) {
         if (signal?.aborted === true) {
           throw new WebError('web-search-router search aborted', 'WEB_ABORTED', { cause: error })
         }
-        throw new WebError(`web-search-router: ${error?.message ?? 'search failed'}`, 'WEB_PROVIDER_ERROR', { cause: error })
+        // The chain-exhausted message already carries the prefix; don't double it.
+        const message = error?.message?.startsWith('web-search-router:') === true
+          ? error.message
+          : `web-search-router: ${error?.message ?? 'search failed'}`
+        throw new WebError(message, 'WEB_PROVIDER_ERROR', { cause: error })
       }
     },
   })

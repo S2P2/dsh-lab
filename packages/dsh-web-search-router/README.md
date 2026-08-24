@@ -15,7 +15,7 @@ session's model, then walks a deterministic fallback chain — all in-package:
 
 > ⚠️ The `codex` hop uses your ChatGPT subscription through a non-official client (requests are distinguishable from the official ones); community plugins report this class of usage can get an account restricted — treat the risk as yours.
 
-Provenance is **never model-facing** (stock-tool contract: the stock `web_search` tool projects content/sources/truncated to the model and nothing else). Every search's routing outcome is reported to the host log and carried on the result's `provenance` field (`served by zai (routed by zai/glm-5.3)`), which survives the seam for direct service callers; on total chain exhaustion the full trail — every hop tried and its failure class — goes to the log and into the thrown error's message. Result cards / transcript display of provenance would need an upstream change and are out of scope. Any failure class (network, timeout, 401, 429, 5xx) rotates to the next hop; a 429 with `Retry-After` cools that backend down for subsequent searches; a backend whose key (or Codex credential) is absent is skipped with a note, not fatal. With zero searxng config the backend falls back to a public-instance list, keeping the keyless tail at two engines (DDG alone throttles under load).
+Provenance is **never model-facing** (stock-tool contract: the stock `web_search` tool projects content/sources/truncated to the model and nothing else). Every search's routing outcome is reported to the host log and carried on the result's `provenance` field (`served by zai (routed by zai/glm-5.3)`), which survives the seam for direct service callers; on total chain exhaustion the full trail — every hop tried and its failure class — goes to the log and into the thrown error's message. Result cards / transcript display of provenance would need an upstream change and are out of scope. Any failure class (network, timeout, 401, 429, 5xx) rotates to the next hop; a 429 with `Retry-After` cools that backend down for subsequent searches; a backend whose key (or Codex credential) is absent is skipped with a note, not fatal. With zero searxng config the backend falls back to a public-instance list, keeping the keyless tail at two backends (DDG alone throttles under load).
 
 Spec of record: [S2P2/dsh-lab#8](https://github.com/S2P2/dsh-lab/issues/8).
 Model-detection decision: [ADR 0002](../../docs/adr/0002-web-search-router-model-detection.md) —
@@ -92,4 +92,6 @@ is the `WebSearchProvider` interface (`available()` + `search()`).
   tracked-agents fallback.
 - `src/codex-auth.js` — vendored dsh-codex store pattern over the shared OAuth
   document + pi-ai refresh facade.
-- `src/index.js` — host entry: config schema, key resolvers, registration.
+- `src/index.js` — host entry: config schema, key resolvers, registration, and the
+  exported `buildBackends(ctx, config, overrides)` (the apply() wiring layer the
+  wiring tests exercise; `overrides` injects `fetchImpl`/`codexAuth` for tests).
