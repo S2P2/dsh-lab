@@ -6,7 +6,6 @@
   "main": "src/index.js",
   "exports": {
     ".": "./src/index.js",
-    "./router": "./src/router.js",
     "./package.json": "./package.json"
   },
   "dsh": {

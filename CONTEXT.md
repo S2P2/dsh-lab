@@ -97,7 +97,7 @@ The Backend the attempt order starts with, matched by longest provider-id prefix
 _Avoid_: primary backend, preferred engine.
 
 **Fallback Chain**:
-The ordered Backend ids attempted after (or instead of) the First Hop: keyed engines first (exa, tavily), free keyless engines last (ddg, searxng). Configured on the plugin row, not coded.
+The ordered Backend ids attempted after (or instead of) the First Hop: keyed Backends first (exa, tavily), free keyless Backends last (ddg, searxng). Configured on the plugin row, not coded.
 _Avoid_: pool, engine list, priority list.
 
 **Backend**:
@@ -105,5 +105,5 @@ One wire implementation inside the Router: codex, zai, exa, tavily, ddg, searxng
 _Avoid_: engine (free-search vocabulary), provider (reserved for LLM providers above).
 
 **Provenance Note**:
-The routing outcome the Router records for every search — serving Backend, routed model, and every skipped or failed hop — carried on the result's `provenance` field and the host log; injected into model-visible content only when the chain degraded (clean serves stay silent to save context).
+The routing outcome the Router records for every search — serving Backend, routed model, and every skipped or failed hop — carried on the result's `provenance` field and the host log. Never model-facing (the stock `web_search` tool projects content/sources/truncated only); on chain exhaustion the full trail goes to the log and the thrown error's message.
 _Avoid_: attribution footer, engine note.

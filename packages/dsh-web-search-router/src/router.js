@@ -99,26 +99,32 @@ export class WebSearchRouterProvider {
         notes.push(describeFailure(id, error))
       }
     }
-    throw lastError ?? new Error('web-search-router: no usable backend in the chain')
+    if (order.length === 0) throw new Error('web-search-router: no usable backend in the chain')
+    // Chain exhausted: the trail is the only provenance record (onRouting
+    // fires on failure too), and the thrown error names every hop tried so
+    // the caller's error metadata carries it; the last hop's error chains
+    // as `cause`.
+    const trail = `chain exhausted [${order.join(' → ')}]: ${notes.join('; ')}`
+    this.#onRouting(trail)
+    const exhausted = new Error(`web-search-router: ${trail}`, { cause: lastError })
+    if (lastError?.status !== undefined) exhausted.status = lastError.status
+    if (lastError?.retryAfterMs !== undefined) exhausted.retryAfterMs = lastError.retryAfterMs
+    throw exhausted
   }
 
   /**
-   * Decorate a served result with provenance. The full note always rides the
-   * result as a `provenance` field (survives the seam's spread for direct
-   * service callers) and is reported through `onRouting` (host log). It is
-   * injected into model-visible `content` ONLY when the chain degraded — the
-   * stock web_search tool projects content/sources/truncated to the model, so
-   * a clean-serve note would be pure token cost, while a degraded-serve note
-   * tells the model to trust the fallback tier's results accordingly.
+   * Decorate a served result with provenance. NEVER model-facing (owner
+   * decision, stock-tool alignment): the stock `web_search` tool projects
+   * content/sources/truncated to the model and drops everything else, so the
+   * routing outcome rides the result's `provenance` field (seam-level
+   * metadata for direct service callers) and the `onRouting` host log. No
+   * content is appended or altered in any case.
    */
   #withProvenance(result, id, notes, model) {
     const routed = model === undefined ? '' : ` (routed by ${model.provider}/${model.model})`
     const provenance = `served by ${id}${routed}${notes.length > 0 ? `; ${notes.join('; ')}` : ''}`
     this.#onRouting(provenance)
-    if (notes.length === 0) return { ...result, provenance }
-    const note = `Note: ${provenance}.`
-    const content = [result.content, note].filter((part) => part !== undefined && part !== '').join('\n\n')
-    return { ...result, provenance, content }
+    return { ...result, provenance }
   }
 }
 

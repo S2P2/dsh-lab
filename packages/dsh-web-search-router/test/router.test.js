@@ -93,7 +93,7 @@ test('the provenance note names the model that drove the routing', async () => {
   })
   const out = await provider.search(q('x'))
   // Clean serve: no note in content (the stock tool projects content to the
-  // model; engine trivia is token cost) — provenance rides the result field.
+  // model; routing trivia is token cost) — provenance rides the result field.
   assert.equal(out.content, 'answer from codex')
   assert.equal(out.provenance, 'served by codex (routed by openai-codex/gpt-5.6-luna)')
 })
@@ -114,12 +114,12 @@ test('a clean serve is reported through the routing callback but not the content
   assert.deepEqual(seen, ['served by exa'])
 })
 
-test('a degraded serve keeps the failure note in content for the model', async () => {
+test('a degraded serve stays silent in content; the trail rides provenance', async () => {
   const exa = fakeBackend('exa', { error: Object.assign(new Error('HTTP 500'), { status: 500 }) })
   const ddg = fakeBackend('ddg', { result: resultFrom('ddg') })
   const provider = router({ backends: [exa, ddg] })
   const out = await provider.search(q('x'))
-  assert.equal(out.content, 'answer from ddg\n\nNote: served by ddg; failed exa (HTTP 500): HTTP 500; skipped tavily (unknown backend id).')
+  assert.equal(out.content, 'answer from ddg', 'never model-facing, degraded or not')
   assert.equal(out.provenance, 'served by ddg; failed exa (HTTP 500): HTTP 500; skipped tavily (unknown backend id)')
 })
 

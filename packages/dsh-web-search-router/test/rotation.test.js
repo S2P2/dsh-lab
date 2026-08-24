@@ -34,15 +34,16 @@ test('a failing first backend rotates to the next and the note names both', asyn
   const tavily = fakeBackend('tavily', { result: RESULT('tavily') })
   const out = await router({ backends: [exa, tavily] }).search({ query: 'q' })
   assert.equal(tavily.calls.length, 1)
-  assert.match(out.content, /served by tavily/)
-  assert.match(out.content, /failed exa: connect ECONNREFUSED/)
+  assert.equal(out.content, 'answer tavily', 'degraded serves stay silent in content')
+  assert.match(out.provenance, /served by tavily/)
+  assert.match(out.provenance, /failed exa: connect ECONNREFUSED/)
 })
 
 test('HTTP status appears in the failure note', async () => {
   const exa = fakeBackend('exa', { error: Object.assign(new Error('quota exceeded'), { status: 429 }) })
   const ddg = fakeBackend('ddg', { result: RESULT('ddg') })
   const out = await router({ backends: [exa, ddg] }).search({ query: 'q' })
-  assert.match(out.content, /failed exa \(HTTP 429\)/)
+  assert.match(out.provenance, /failed exa \(HTTP 429\)/)
 })
 
 test('every failure class rotates: timeout, 401, 429, 5xx', async () => {
@@ -55,7 +56,7 @@ test('every failure class rotates: timeout, 401, 429, 5xx', async () => {
     const a = fakeBackend('a', { error })
     const b = fakeBackend('b', { result: RESULT('b') })
     const out = await router({ backends: [a, b] }).search({ query: 'q' })
-    assert.match(out.content, /served by b/, `should rotate past ${error.message}`)
+    assert.match(out.provenance, /served by b/, `should rotate past ${error.message}`)
   }
 })
 
@@ -64,8 +65,8 @@ test('an unavailable backend is skipped with its reason, not tried', async () =>
   const ddg = fakeBackend('ddg', { result: RESULT('ddg') })
   const out = await router({ backends: [exa, ddg] }).search({ query: 'q' })
   assert.equal(exa.calls.length, 0)
-  assert.match(out.content, /skipped exa \(missing EXA_API_KEY\)/)
-  assert.match(out.content, /served by ddg/)
+  assert.match(out.provenance, /skipped exa \(missing EXA_API_KEY\)/)
+  assert.match(out.provenance, /served by ddg/)
 })
 
 test('signed-out codex is a skip, and the chain carries the search', async () => {
@@ -82,8 +83,8 @@ test('signed-out codex is a skip, and the chain carries the search', async () =>
   })
   const out = await provider.search({ query: 'q' })
   assert.equal(codex.calls.length, 0)
-  assert.match(out.content, /skipped codex \(signed out of OpenAI Codex\)/)
-  assert.match(out.content, /served by tavily/)
+  assert.match(out.provenance, /skipped codex \(signed out of OpenAI Codex\)/)
+  assert.match(out.provenance, /served by tavily/)
 })
 
 test('a 429 Retry-After puts the backend on cooldown for the next search', async () => {
@@ -103,30 +104,47 @@ test('a 429 Retry-After puts the backend on cooldown for the next search', async
     now: () => clock,
   })
   const first = await provider.search({ query: 'q' })
-  assert.match(first.content, /failed exa \(HTTP 429\)/)
+  assert.match(first.provenance, /failed exa \(HTTP 429\)/)
   const second = await provider.search({ query: 'q' })
   assert.equal(exa.calls.length, 1, 'cooling backend is not retried')
-  assert.match(second.content, /skipped exa \(rate-limited, cooling down\)/)
+  assert.match(second.provenance, /skipped exa \(rate-limited, cooling down\)/)
   clock += 5_001
   const third = await provider.search({ query: 'q' })
   assert.equal(exa.calls.length, 2, 'cooldown expiry releases the backend')
-  assert.doesNotMatch(third.content, /cooling down/)
+  assert.doesNotMatch(third.provenance, /cooling down/)
 })
 
-test('when every backend fails the last error is thrown', async () => {
+test('when every backend fails the trail is reported and the error names every hop', async () => {
+  const seen = []
   const exa = fakeBackend('exa', { error: Object.assign(new Error('first failure'), { status: 500 }) })
   const ddg = fakeBackend('ddg', { error: Object.assign(new Error('final failure'), { status: 503 }) })
+  const provider = new WebSearchRouterProvider({
+    backends: new Map([['exa', exa], ['ddg', ddg]]),
+    resolveModel: () => undefined,
+    modelRoutes: {},
+    fallbackChain: ['exa', 'ddg'],
+    onRouting: (note) => seen.push(note),
+  })
   await assert.rejects(
-    router({ backends: [exa, ddg] }).search({ query: 'q' }),
-    /final failure/,
+    provider.search({ query: 'q' }),
+    (error) => {
+      assert.match(error.message, /chain exhausted \[exa → ddg\]/)
+      assert.match(error.message, /failed exa \(HTTP 500\): first failure/)
+      assert.match(error.message, /failed ddg \(HTTP 503\): final failure/)
+      assert.equal(error.status, 503, 'last hop status surfaces for callers')
+      assert.equal(error.cause?.message, 'final failure')
+      return true
+    },
   )
+  assert.equal(seen.length, 1, 'the failure trail is the provenance record')
+  assert.match(seen[0], /chain exhausted/)
 })
 
 test('unknown backend ids in the chain are noted, not fatal', async () => {
   const ddg = fakeBackend('ddg', { result: RESULT('ddg') })
   const out = await router({ backends: [ddg], fallbackChain: ['nope', 'ddg'] }).search({ query: 'q' })
-  assert.match(out.content, /skipped nope \(unknown backend id\)/)
-  assert.match(out.content, /served by ddg/)
+  assert.match(out.provenance, /skipped nope \(unknown backend id\)/)
+  assert.match(out.provenance, /served by ddg/)
 })
 
 test('a clean first-hop success injects nothing into content; provenance rides the result', async () => {

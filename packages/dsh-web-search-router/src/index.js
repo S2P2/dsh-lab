@@ -59,9 +59,18 @@ function keyResolver(ctx, envName) {
   }
 }
 
-export function apply(ctx, config) {
+/**
+ * Build the backend set from resolved config. `overrides.fetchImpl` exists for
+ * wiring tests; production callers omit it. An EMPTY `searxng.instances`
+ * config falls through to the backend's public-instance default — passing `[]`
+ * explicitly would disable the keyless tail (review finding: the spec's story
+ * 5 is DDG+SearXNG, and DDG is the backend that throttles under load).
+ */
+export function buildBackends(ctx, config, overrides = {}) {
+  const fetchImpl = overrides.fetchImpl
+  const passFetch = fetchImpl === undefined ? {} : { fetchImpl }
   const timeoutMs = config.requestTimeoutMs
-  const codexAuth = createCodexAuth()
+  const codexAuth = overrides.codexAuth ?? createCodexAuth()
   const backends = new Map()
   for (const backend of [
     createCodexBackend({
@@ -72,25 +81,36 @@ export function apply(ctx, config) {
       contextSize: config.codex.contextSize,
       maxOutputTokens: config.codex.maxOutputTokens,
       timeoutMs,
+      ...passFetch,
     }),
-    createZaiBackend({ resolveKey: keyResolver(ctx, config.zai.apiKeyEnv), timeoutMs }),
-    createExaBackend({ resolveKey: keyResolver(ctx, config.exa.apiKeyEnv), timeoutMs }),
-    createTavilyBackend({ resolveKey: keyResolver(ctx, config.tavily.apiKeyEnv), timeoutMs }),
-    createDdgBackend({ timeoutMs }),
-    createSearxngBackend({ instances: config.searxng?.instances ?? [], timeoutMs }),
+    createZaiBackend({ resolveKey: keyResolver(ctx, config.zai.apiKeyEnv), timeoutMs, ...passFetch }),
+    createExaBackend({ resolveKey: keyResolver(ctx, config.exa.apiKeyEnv), timeoutMs, ...passFetch }),
+    createTavilyBackend({ resolveKey: keyResolver(ctx, config.tavily.apiKeyEnv), timeoutMs, ...passFetch }),
+    createDdgBackend({ timeoutMs, ...passFetch }),
+    createSearxngBackend({
+      instances: config.searxng?.instances?.length > 0 ? config.searxng.instances : undefined,
+      timeoutMs,
+      ...passFetch,
+    }),
   ]) {
     backends.set(backend.id, backend)
   }
+  return backends
+}
+
+export function apply(ctx, config) {
+  const backends = buildBackends(ctx, config)
 
   const provider = new WebSearchRouterProvider({
     backends,
     resolveModel: createModelResolver(ctx),
     modelRoutes: config.modelRoutes,
     fallbackChain: config.fallbackChain,
-    // Provenance lives in the host log + the result's provenance field; the
-    // model-visible content gets a note only when the chain degraded (the
-    // stock web_search tool projects content/sources/truncated to the model,
-    // so a clean-serve note would be pure token cost).
+    // Provenance is NEVER model-facing (stock-tool contract): it lives in the
+    // host log and the result's provenance field only. The stock web_search
+    // tool projects content/sources/truncated to the model and drops the
+    // rest, so any content note would be both unseen metadata loss and token
+    // cost.
     onRouting: (note) => ctx.logger?.info?.('web-search-router: %s', note),
   })
 
