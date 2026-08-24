@@ -84,3 +84,20 @@ test('model route matching is by provider id prefix', async () => {
   await provider.search(q('x'))
   assert.equal(zai.calls.length, 1)
 })
+
+test('the provenance note names the model that drove the routing', async () => {
+  const codex = fakeBackend('codex', { result: resultFrom('codex') })
+  const provider = router({
+    backends: [codex],
+    model: { provider: 'openai-codex', model: 'gpt-5.6-luna' },
+  })
+  const out = await provider.search(q('x'))
+  assert.equal(out.content, 'answer from codex\n\nNote: served by codex (routed by openai-codex/gpt-5.6-luna).')
+})
+
+test('with no model context the note omits the routing clause', async () => {
+  const exa = fakeBackend('exa', { result: resultFrom('exa') })
+  const provider = router({ backends: [exa], model: undefined })
+  const out = await provider.search(q('x'))
+  assert.equal(out.content, 'answer from exa\n\nNote: served by exa.')
+})

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { createModelResolver } from '../src/model-context.js'
 
 function fakeAgent({ id, header, options }, cleanups) {
+  const listeners = new Map()
   return {
     id,
     options: options ?? {},
@@ -10,9 +11,18 @@ function fakeAgent({ id, header, options }, cleanups) {
       requestHeader: () => (header === undefined ? undefined : { config: header }),
     },
     ctx: {
+      on(event, listener) {
+        if (!listeners.has(event)) listeners.set(event, [])
+        listeners.get(event).push(listener)
+        return () => listeners.set(event, (listeners.get(event) ?? []).filter((l) => l !== listener))
+      },
       effect(fn) {
         cleanups.push(fn())
       },
+    },
+    /** Fire one scoped event the way dsh-scope would dispatch it. */
+    __fire(event, payload) {
+      for (const listener of listeners.get(event) ?? []) listener(payload, async () => undefined)
     },
   }
 }
@@ -55,6 +65,27 @@ test('no initiator resolves the most recently created tracked agent', () => {
   ctx.__emit('agent/created', { agent: fakeAgent({ id: 's1', header: { provider: 'zai', model: 'glm-5.2' } }, ctx.__cleanups) })
   ctx.__emit('agent/created', { agent: fakeAgent({ id: 's2', header: { provider: 'openai-codex', model: 'gpt-5.6-sol' } }, ctx.__cleanups) })
   assert.deepEqual(resolve(), { provider: 'openai-codex', model: 'gpt-5.6-sol' })
+})
+
+test('the most recently ACTIVE agent wins over the newest created (live codex regression)', () => {
+  // Shape of the 2026-08-23 dogfood bug: codex session created first, a GLM
+  // session created seconds later; the CODEX session's own tool call must
+  // resolve its model, not the newer session's.
+  const ctx = fakeCtx({ initiator: undefined })
+  const resolve = createModelResolver(ctx)
+  const codex = fakeAgent({ id: 's1', header: { provider: 'openai-codex', model: 'gpt-5.6-luna' } }, ctx.__cleanups)
+  const glm = fakeAgent({ id: 's2', header: { provider: 'zai', model: 'glm-5.3' } }, ctx.__cleanups)
+  ctx.__emit('agent/created', { agent: codex })
+  ctx.__emit('agent/created', { agent: glm })
+  // The codex session steps (its request precedes its web_search call).
+  codex.__fire('agent/pre-step', { turn: 1, step: 1 })
+  assert.deepEqual(resolve(), { provider: 'openai-codex', model: 'gpt-5.6-luna' })
+  // Later, the GLM session steps: it now wins for ITS tool calls.
+  glm.__fire('agent/pre-step', { turn: 1, step: 1 })
+  assert.deepEqual(resolve(), { provider: 'zai', model: 'glm-5.3' })
+  // And back again — recency, not creation order or stickiness.
+  codex.__fire('agent/pre-step', { turn: 2, step: 1 })
+  assert.deepEqual(resolve(), { provider: 'openai-codex', model: 'gpt-5.6-luna' })
 })
 
 test('a disposed agent stops being the fallback', () => {

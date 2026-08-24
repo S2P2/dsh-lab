@@ -180,6 +180,46 @@ test('zai: a stale MCP session is re-established once and the search retried', a
   assert.equal(out.sources.length, 2)
 })
 
+test('zai: a payload-less 202 (dropped session, observed live) re-establishes and retries', async () => {
+  const mcp = fakeZaiMcp()
+  let dropOnce = true
+  const fetchImpl = fakeFetch([
+    {
+      match: 'https://api.z.ai/api/mcp/web_search_prime/mcp',
+      handle(args) {
+        const body = JSON.parse(args.init.body)
+        if (body.method === 'tools/call' && dropOnce) {
+          dropOnce = false
+          // Observed live shape: stale session answered 202 with an empty body.
+          return { ok: true, status: 202, headers: { get: () => null }, text: async () => '' }
+        }
+        return mcp.route.handle(args)
+      },
+    },
+  ])
+  const backend = createZaiBackend({ resolveKey: async () => 'zai-key', fetchImpl })
+  const out = await backend.search({ query: 'q' }, SIGNAL)
+  assert.equal(mcp.state.initializeCalls, 2, 're-initialized after the payload-less response')
+  assert.equal(out.sources.length, 2)
+})
+
+test('zai: a 429 on tools/call throws for chain rotation without re-initializing', async () => {
+  const mcp = fakeZaiMcp()
+  const fetchImpl = fakeFetch([
+    {
+      match: 'https://api.z.ai/api/mcp/web_search_prime/mcp',
+      handle(args) {
+        const body = JSON.parse(args.init.body)
+        if (body.method === 'tools/call') return jsonResponse(429, { message: 'rate limited' })
+        return mcp.route.handle(args)
+      },
+    },
+  ])
+  const backend = createZaiBackend({ resolveKey: async () => 'k', fetchImpl })
+  await assert.rejects(backend.search({ query: 'q' }, SIGNAL), (error) => error.status === 429)
+  assert.equal(mcp.state.initializeCalls, 1, 'a rate limit is not treated as a dropped session')
+})
+
 test('zai: missing key is unavailable with the env name in the reason', async () => {
   const backend = createZaiBackend({ resolveKey: async () => undefined, fetchImpl: fakeFetch([]) })
   const availability = await backend.availability()

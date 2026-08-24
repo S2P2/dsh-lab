@@ -258,7 +258,12 @@ export function createZaiBackend(options) {
     if (!response.ok) await throwHttpResponse(id, response)
     if (notification) return undefined
     const payload = parseMcpPayload(await response.text(), body.id)
-    if (payload === undefined) throw new Error(`${id}: MCP response carried no JSON-RPC payload`)
+    if (payload === undefined) {
+      // Observed live: a dropped server session answers a REQUEST with 202 and
+      // an empty body (202 is the notification-only status). Mark it stale so
+      // the caller can re-establish the session and retry once.
+      throw Object.assign(new Error(`${id}: MCP response carried no JSON-RPC payload (stale session)`), { staleSession: true })
+    }
     if (payload.error) {
       throw Object.assign(new Error(`${id}: ${payload.error.message ?? 'MCP error'}`), { status: undefined })
     }
@@ -296,9 +301,13 @@ export function createZaiBackend(options) {
       try {
         result = await callTool(key, request, signal)
       } catch (error) {
-        // A dropped server session surfaces as a 4xx on the reused session id;
-        // re-establish once and retry before giving the chain the failure.
-        if (typeof error?.status === 'number' && error.status >= 400 && error.status < 500 && sessionId !== undefined) {
+        // A dropped server session surfaces either as the spec's 404 on the
+        // reused session id or as a payload-less response (observed live);
+        // re-establish once and retry. Other statuses (401/403 credentials,
+        // 429 billing/rate) rotate instead — a new session won't help.
+        const hadSession = sessionId !== undefined
+        const sessionDropped = error?.staleSession === true || error?.status === 404
+        if (hadSession && sessionDropped) {
           sessionId = undefined
           result = await callTool(key, request, signal)
         } else {

@@ -66,7 +66,8 @@ export class WebSearchRouterProvider {
   async search(request, signal) {
     const notes = []
     let lastError
-    const order = planAttempts(this.#resolveModel(), this.#modelRoutes, this.#fallbackChain)
+    const model = this.#resolveModel()
+    const order = planAttempts(model, this.#modelRoutes, this.#fallbackChain)
     for (const id of order) {
       const backend = this.#backends.get(id)
       if (backend === undefined) {
@@ -86,7 +87,7 @@ export class WebSearchRouterProvider {
       }
       try {
         const result = await backend.search(request, signal)
-        return this.#withProvenance(result, id, notes)
+        return this.#withProvenance(result, id, notes, model)
       } catch (error) {
         lastError = error
         const retryAfterMs = typeof error?.retryAfterMs === 'number' ? error.retryAfterMs : undefined
@@ -99,9 +100,10 @@ export class WebSearchRouterProvider {
     throw lastError ?? new Error('web-search-router: no usable backend in the chain')
   }
 
-  /** Prepend the serving backend and any skip/failure notes to the result content. */
-  #withProvenance(result, id, notes) {
-    const provenance = `Note: served by ${id}${notes.length > 0 ? `; ${notes.join('; ')}` : ''}.`
+  /** Prepend the serving backend, routing model, and any skip/failure notes to the result content. */
+  #withProvenance(result, id, notes, model) {
+    const routed = model === undefined ? '' : ` (routed by ${model.provider}/${model.model})`
+    const provenance = `Note: served by ${id}${routed}${notes.length > 0 ? `; ${notes.join('; ')}` : ''}.`
     const content = [result.content, provenance].filter((part) => part !== undefined && part !== '').join('\n\n')
     return { ...result, content }
   }
