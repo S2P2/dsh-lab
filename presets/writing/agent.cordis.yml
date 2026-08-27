@@ -1,0 +1,45 @@
+# Writing-focused Agent preset.
+#
+# Keep this composition intentionally small: writing persona, file access/search,
+# web search, editorial questions, and preset-local Skills. Credentials remain
+# host/profile concerns and must never be embedded here.
+
+- id: persona
+  name: '@deepseek-ai/dsh-persona'
+  config:
+    text: >-
+      You are a writing-focused agent. Help the user research, structure, draft,
+      revise, and polish written work. Prefer clear prose, preserve the user's
+      intent and voice, distinguish sourced facts from interpretation, and avoid
+      coding-oriented behavior unless the writing task itself requires code.
+
+- id: agent-instructions
+  name: '@deepseek-ai/dsh-agent-instructions'
+  config:
+    maxBytes: 65536
+
+- id: tool-fs
+  name: '@deepseek-ai/dsh-tool-fs'
+
+- id: tool-fs-search
+  name: '@deepseek-ai/dsh-tool-fs-search'
+  config:
+    sampleOverCapGlobResults: false
+
+- id: skill-filesystem
+  name: '@deepseek-ai/dsh-skill-filesystem'
+  config:
+    customSkillDirs:
+      - !!js "process.getBuiltinModule('node:url').fileURLToPath(new URL('skills/', baseUrl))"
+
+- id: tool-skill
+  name: '@deepseek-ai/dsh-tool-skill'
+
+- id: tool-ask-user
+  name: '@deepseek-ai/dsh-tool-ask-user'
+
+- id: tool-web
+  name: '@deepseek-ai/dsh-tool-web'
+  config:
+    fetch: false
+    searchTimeoutMs: 60000
