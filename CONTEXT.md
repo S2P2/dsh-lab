@@ -4,6 +4,36 @@ Experimental DeepSeek Harness (DSH) plugin lab: one package per plugin. This con
 
 ## Language
 
+### Agent harness research
+
+**Capability**:
+A user- or agent-visible thing an agent harness enables, independent of the mechanism used to implement it. Examples include persistent memory, scheduled execution, remote nodes, browser control, sandboxing, multi-agent delegation, and messaging channels.
+_Avoid_: feature (too product-oriented), mechanism (how a Capability is implemented), plugin (one possible mechanism).
+
+**Mechanism**:
+The architectural means by which a Capability is provided, such as a plugin, service, process, sandbox, protocol, built-in subsystem, or external runtime layer.
+_Avoid_: capability (what is enabled), implementation detail (too broad).
+
+**DSH Comparison Classification**:
+The relationship between a researched Capability and DSH, recorded as exactly one of: Equivalent, Packaging Gap, Plugin Opportunity, Core Gap, or Not Applicable.
+_Avoid_: support level, score, ranking.
+
+**Equivalent**:
+DSH already provides the Capability adequately, even when its Mechanism differs from another harness.
+
+**Packaging Gap**:
+DSH has the primitives for the Capability, but another harness provides a materially stronger integrated or user-facing experience.
+_Avoid_: missing feature (the underlying Capability is not missing).
+
+**Plugin Opportunity**:
+The Capability is not adequately available in DSH today and appears to fit naturally within DSH's plugin/service extension model.
+
+**Core Gap**:
+The Capability cannot reasonably be supplied by an ordinary DSH plugin and appears to require a change to the harness, runtime, trust boundary, or another core architectural seam.
+
+**Not Applicable**:
+The Capability is useful in the source harness but is not relevant or desirable for DSH's intended role.
+
 ### Providers & plans
 
 **Provider**:
