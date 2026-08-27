@@ -1,12 +1,12 @@
 # dsh-lab
 
-My [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH) plugin lab — pnpm monorepo, one package per plugin.
+My [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH) extension lab — reusable plugins, Agent presets, and supporting research.
 
-> ⚠️ **Early experimental plugins.** Everything here is under active, unrestrained experimentation: APIs will break, behavior will change, and quality varies wildly between packages. Use at your own risk — read the source before installing anything into a profile that holds your credentials, and pin exact versions if you depend on any of it.
+> ⚠️ **Early experimental extensions.** Everything here is under active, unrestrained experimentation: APIs will break, behavior will change, and quality varies wildly between packages and presets. Use at your own risk — read the source before installing anything into a profile that holds your credentials.
 
 ## Why
 
-Skills shape agent behavior through text; they can't register tools, render UI, or enforce anything deterministically. This lab is where those pieces live: workflow extensions around [Matt Pocock's skills](https://github.com/mattpocock/skills), quota/status widgets, and other experiments.
+Skills shape agent behavior through text; plugins add deterministic tools, UI, and runtime behavior; presets compose those capabilities into purpose-built agents. Keep those layers together when they need to evolve together, but preserve clear artifact boundaries between reusable plugin packages and Agent compositions.
 
 ## Packages
 
@@ -41,10 +41,13 @@ Note: pnpm 11+ gates freshly published packages behind `minimumReleaseAge` (24h 
 
 Changesets version the packages. A PR that changes anything under `packages/` adds a changeset in the same PR (`pnpm changeset`). Merging to `main` keeps the auto-maintained "Version Packages" PR updated; merging that bumps versions, writes `CHANGELOG.md` files, and tags. Tags only for now — npm publishing flips on with the first shipped package.
 
+Agent presets under `presets/` are not npm packages and do not require Changesets unless a PR also changes a package.
+
 ## Layout
 
 ```
-packages/<dsh-*>   one npm package per plugin
+packages/<dsh-*>   one npm package per reusable plugin
+presets/<id>/      one filesystem Agent preset per immediate child directory
 shared/            code shared across plugins
 .dsh/              dogfooding: skills + profile bits for working on this repo
 ```
@@ -68,6 +71,14 @@ Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agent
 ### DSH plugin prior art
 
 Researching, designing, or materially changing a DSH plugin: use `docs/agents/dsh-plugin-landscape.md` as the ecosystem map for existing plugin categories, boundaries, recurring shapes, and adjacent prior art.
+
+### DSH Agent presets
+
+Use `presets/<id>/` for Agent compositions; keep `packages/` reserved for independently installable plugins. Each immediate child of `presets/` must be a self-contained preset directory with `agent.cordis.yml` and may contain `preset.yml`, preset-local Skills, and other preset-owned assets.
+
+Do not commit secrets to presets. API keys, access tokens, passwords, cookies, and other credentials belong in the Host/profile credential system. A public preset may reference capabilities that require credentials at runtime, but it must never embed the credential value.
+
+Prefer the repository checkout as the source of truth during dogfooding. Point DSH at the repository's `presets/` root or copy an individual preset into the user preset root; avoid maintaining an untracked divergent copy by hand.
 
 ### AI-assisted content
 
