@@ -98,11 +98,11 @@
 <main>
 
 <header class="hero">
-  <div class="kicker">Research report · compiled 2026-08-30 · 17 harnesses profiled, all pinned to source</div>
+  <div class="kicker">Research report · compiled 2026-08-30 · 19 harnesses profiled · ecosystem registry audited · all pinned to source</div>
   <h1>Where DSH stands in the agent-harness world</h1>
   <p class="sub">A visual companion to <code>docs/research/harness-map/capability-map.md</code> — the consolidated
-  capability map built from 18 research profiles (DSH itself + 17 other agent harnesses), each verified against
-  primary sources at a pinned commit.</p>
+  capability map built from 20 research profiles (DSH itself + 19 other agent harnesses, two added post-synthesis),
+  each verified against primary sources at a pinned commit — then audited against DSH's live plugin ecosystem.</p>
 </header>
 
 <nav class="toc">
@@ -156,13 +156,16 @@
       <li><b>The composition kernel is still unique.</b> No other harness in the cohort has DSH's
       "everything is a plugin, swapped at runtime through typed seams" core. Pi's in-flight rewrite is the closest
       independent parallel. This is DSH's differentiator, not a liability.</li>
-      <li><b>Six true core gaps</b>, ranked by industry consensus: <b>cross-session memory</b> (7 of 17 harnesses ship one),
-      network-egress policy, an always-on host for schedulers/channels, live remote sessions, interactive desktop
-      control, multi-device orchestration.</li>
+      <li><b>Five true core gaps survive review</b> (memory was promoted to plugin territory after the owner's
+      ecosystem audit — see below): network-egress policy, an always-on host substrate (narrowed by an existing
+      cron plugin), live remote sessions, interactive desktop control, multi-device orchestration.</li>
       <li><b>Cheapest high-value move:</b> an LLM approval/review layer. Five harnesses built one independently;
-      in DSH it fits the existing <code>tools/pre-execute</code> + <code>ctx.approval</code> seams with zero core changes.</li>
-      <li><b>Biggest packaging deficits:</b> no plugin marketplace, no desktop app, no public client SDK —
-      all composable from what exists, none composed.</li>
+      in DSH it fits the existing <code>tools/pre-execute</code> + <code>ctx.approval</code> seams with zero core changes —
+      and no plugin in the registry does it yet.</li>
+      <li><b>The DSH plugin ecosystem already covers several "gaps"</b> the map first scored against the core repo:
+      cross-session memory (mnemon ★532, dsh-memory-connect…), marketplaces (awesome-dsh-harness-plugins ★197 indexing
+      11,000+ plugins), desktop shells (dshcode ★445), scheduled session firing (dsh-timer-agent). For a composition
+      kernel, ecosystem coverage <i>is</i> capability — the map now scores it that way.</li>
       <li><b>Everything moves.</b> Every claim is pinned to a dated snapshot; several repos rewrite weekly.
       Re-pin before quoting. (Cline even <i>removed</i> its browser tool mid-migration during our profiling window.)</li>
     </ol>
@@ -170,17 +173,20 @@
 </section>
 
 <section id="cohort">
-  <h2><span class="no">02</span>The cohort — 17 harnesses, 8 archetypes</h2>
-  <p class="lead">Deliberately heterogeneous, so that anything <i>all</i> of them agree on is signal, not fashion.</p>
+  <h2><span class="no">02</span>The cohort — 19 harnesses, 8 archetypes</h2>
+  <p class="lead">Deliberately heterogeneous, so that anything <i>all</i> of them agree on is signal, not fashion.
+  Two joined post-synthesis (<span class="src" style="border-color:#ddd6fe">Open WebUI</span> <span class="src" style="border-color:#ddd6fe">thClaws</span>).</p>
   <div class="grid g3">
-    <div class="card"><h4>Personal assistants</h4><span class="src">OpenClaw</span><span class="src">Hermes</span><span class="src">nanobot</span>
-      <p class="why">Chat-channel-first, memory + cron + always-on daemons. The "life OS" school.</p></div>
+    <div class="card"><h4>Personal assistants</h4><span class="src">OpenClaw</span><span class="src">Hermes</span><span class="src">nanobot</span><span class="src">thClaws</span>
+      <p class="why">Chat-channel-first, memory + cron + always-on daemons. The "life OS" school; thClaws is its native-Rust,
+      one-engine-four-surfaces variant with in-chat approval UIs.</p></div>
     <div class="card"><h4>Desktop coworkers</h4><span class="src">OpenWorker</span><span class="src">Eigent</span>
       <p class="why">GUI apps over local agent runtimes; governance and workforce UX respectively.</p></div>
     <div class="card"><h4>Research fleets</h4><span class="src">UFO³</span><span class="src">NemoClaw + OpenShell</span>
       <p class="why">Microsoft's GUI-agent stack; NVIDIA's sandboxed blueprint runtime.</p></div>
-    <div class="card"><h4>Platform fleets</h4><span class="src">OpenHands</span><span class="src">Cloudflare OS</span>
-      <p class="why">Multi-repo / multi-tenant agent platforms; server-in-container and object-capability models.</p></div>
+    <div class="card"><h4>Platform fleets</h4><span class="src">OpenHands</span><span class="src">Cloudflare OS</span><span class="src">Open WebUI</span>
+      <p class="why">Multi-repo / multi-tenant agent platforms; server-in-container, object-capability, and multi-user
+      self-hosted-workspace models respectively.</p></div>
     <div class="card"><h4>Coding agents, open</h4><span class="src">Codex</span><span class="src">OpenCode</span><span class="src">Pi</span><span class="src">Goose</span>
       <p class="why">The convergence zone: Rust/TS runtimes re-deriving DSH's bets. Codex is the closest architectural match.</p></div>
     <div class="card"><h4>Coding agents, closed</h4><span class="src">Claude Code</span><span class="src">Cline</span><span class="src">OIX + Workstation</span>
@@ -189,24 +195,33 @@
 </section>
 
 <section id="core">
-  <h2><span class="no">03</span>Six core gaps — what DSH structurally lacks</h2>
+  <h2><span class="no">03</span>Core gaps — what DSH structurally lacks</h2>
   <p class="lead">Each needs host/runtime substrate DSH doesn't have. Bars show how many cohort members
-  already ship it — the industry-consensus pressure.</p>
+  already ship it — the industry-consensus pressure. <b>Five survive the post-review ecosystem audit;</b>
+  the sixth (memory) was promoted below after plugins demonstrated it.</p>
   <div class="grid g2">
 
-    <div class="card core"><span class="count">7/17</span>
-      <h4>1 · Cross-session memory</h4>
-      <div class="bar"><i style="width:41%;background:var(--core)"></i></div>
-      <span class="src">Claude Code</span><span class="src">Codex</span><span class="src">OpenClaw</span><span class="src">Hermes</span><span class="src">nanobot</span><span class="src">Agent Zero</span><span class="src">OIX</span><span class="src dim">goose ◐</span>
-      <p class="why">The cohort's most consistent absence in DSH. Codex's two-phase pipeline (extract → git-baselined
-      consolidation) is the reference; nanobot proves it needs no embedding database — just files + a bus.</p></div>
+    <div class="card plug"><span class="count">9/19 + ★532</span>
+      <h4>1 · Cross-session memory — <i>promoted out of core after review</i></h4>
+      <div class="bar"><i style="width:47%;background:var(--plug)"></i></div>
+      <span class="src">Claude Code</span><span class="src">Codex</span><span class="src">OpenClaw</span><span class="src">Hermes</span><span class="src">nanobot</span><span class="src">Agent Zero</span><span class="src">OIX</span><span class="src">thClaws</span><span class="src">Open WebUI</span>
+      <span class="src" style="border-color:#ddd6fe">mnemon ★532</span><span class="src" style="border-color:#ddd6fe">dsh-memory-connect</span><span class="src" style="border-color:#ddd6fe">dsh-native-memory</span><span class="src" style="border-color:#ddd6fe">dsh-evolve</span>
+      <p class="why">Owner review overturned the "core gap" call: DSH plugins already ship the full pipeline —
+      auto-extraction, FTS5/semantic recall injected per turn, LLM consolidation via <code>ctx.llm</code>
+      (dsh-memory-connect); dsh-native-memory does it purely on native seams, no external server. A plain
+      MEMORY.md needs no plugin at all. The two post-synthesis profiles reinforce it: thClaws' markdown+KMS+`/dream`
+      and Open WebUI's per-user layered memory are both files+bus mechanisms, no embeddings. <b>Remaining core residue:</b>
+      only consolidation that runs with no session live (the always-on slice, next card).</p></div>
 
-    <div class="card core"><span class="count">6/17</span>
-      <h4>2 · Always-on host (schedulers &amp; channels)</h4>
-      <div class="bar"><i style="width:35%;background:var(--core)"></i></div>
-      <span class="src">OpenClaw</span><span class="src">Hermes</span><span class="src">nanobot</span><span class="src">Agent Zero</span><span class="src">Cline</span><span class="src">OpenHands</span><span class="src dim">goose (in-process only)</span>
-      <p class="why">Unattended cron, calendar semantics, channel presence. DSH's reminders are session-local by design;
-      the missing piece is daemon lifecycle, not the scheduler logic. (Session-scoped scheduling alone is plugin-reachable — see below.)</p></div>
+    <div class="card core"><span class="count">8/19</span>
+      <h4>2 · Always-on host (service lifecycle &amp; channels)</h4>
+      <div class="bar"><i style="width:42%;background:var(--core)"></i></div>
+      <span class="src">OpenClaw</span><span class="src">Hermes</span><span class="src">nanobot</span><span class="src">Agent Zero</span><span class="src">Cline</span><span class="src">OpenHands</span><span class="src">thClaws</span><span class="src">Open WebUI</span><span class="src dim">goose (in-process only)</span>
+      <p class="why">Narrowed by review: <b>dsh-timer-agent</b> (★4) already runs a host-resident cron engine that fires
+      real agent sessions on schedule. The post-synthesis profiles confirm the residue framing: thClaws ships a native
+      launchd/systemd daemon, Open WebUI runs RRULE automations server-side. What still needs substrate: running the
+      DSH host <i>unattended as a system service</i> (boot-start, supervision) and channel presence — inbound webhooks
+      at arbitrary times.</p></div>
 
     <div class="card core"><span class="count">5/17</span>
       <h4>3 · Live remote session fabric</h4>
@@ -247,8 +262,10 @@
     <div class="card plug"><span class="count">×5</span>
       <h4>1 · LLM approval / review layer</h4><div class="seam">tools/pre-execute + ctx.approval</div>
       <span class="src">goose judge+adversary</span><span class="src">Claude Code classifier</span><span class="src">OpenHands risk ensemble</span><span class="src">Codex Guardian</span><span class="src">OpenCode doom-loop</span>
-      <p class="why">Five independent "detection in front of approval" stacks. Zero core change in DSH — the strongest
-      consensus plugin play in the whole map.</p></div>
+      <p class="why">Clarified after review: DSH already ships the approval <b>plumbing</b> — sandbox modes switchable
+      mid-session via permission presets, the ask tool, one-shot escalation (scored Equivalent). The missing piece is the
+      <b>LLM responder</b>: auto-approve low-risk calls, flag high-risk ones, no human needed. No plugin found in the
+      registry — still the strongest open play.</p></div>
 
     <div class="card plug"><span class="count">×4</span>
       <h4>2 · Full MCP client surface</h4><div class="seam">dsh-mcp-client + typed events</div>
@@ -265,8 +282,10 @@
     <div class="card plug"><span class="count">×4</span>
       <h4>4 · Model catalogs, routing &amp; harness emulation</h4><div class="seam">ctx.llm + presets</div>
       <span class="src">OpenCode models.dev</span><span class="src">goose registry</span><span class="src">OpenHands RouterLLM</span><span class="src">OIX provider→harness</span>
-      <p class="why">Routing intelligence above the adapter registry: cost-aware catalogs, mid-conversation model
-      switches, even OIX's trick of emulating whole harness surfaces per provider family.</p></div>
+      <p class="why">Clarified after review: DSH <b>has</b> a model picker — picking a model sets the shared default for
+      new sessions (per pinned docs, a session that already sent a request keeps its logged model). The opportunity is
+      the routing <b>intelligence</b> on top: cost-aware catalogs, automatic router policies, OIX-style harness
+      emulation. Ecosystem status unverified (registry query rate-limited).</p></div>
 
     <div class="card plug"><span class="count">×3</span>
       <h4>5 · Cross-harness import / migration</h4><div class="seam">sessions backend + embedding SDK</div>
@@ -281,9 +300,10 @@
 
     <div class="card plug"><span class="count">×2</span>
       <h4>7 · In-process cron &amp; scheduled recipes</h4><div class="seam">dsh-schedule-style plugin + agent/* events</div>
-      <span class="src">goose cron recipes</span><span class="src">Cline agenda queue</span>
-      <p class="why">The session-scoped half of scheduling — goose proves it needs no daemon. The unattended half
-      stays a core gap (see #2 above).</p></div>
+      <span class="src">goose cron recipes</span><span class="src">Cline agenda queue</span><span class="src" style="border-color:#ddd6fe">dsh-timer-agent ★4 (DSH!)</span>
+      <p class="why">The session-scoped half of scheduling — and the ecosystem is already active here:
+      dsh-timer-agent fires real agent sessions on schedule from a host-resident cron engine with a jobs board.
+      Only unattended service-lifecycle operation remains core (see #2 above).</p></div>
 
     <div class="card plug"><span class="count">×2</span>
       <h4>8 · Sandboxed plugin subprocesses</h4><div class="seam">ctx.subprocess + ctx.fs</div>
@@ -303,16 +323,18 @@
 </section>
 
 <section id="packaging">
-  <h2><span class="no">05</span>Six packaging gaps — DSH can already do this; nobody packaged it</h2>
+  <h2><span class="no">05</span>Packaging gaps — four survive review; two are ecosystem-covered</h2>
   <p class="lead">Capability exists as shipped parts; the composed product doesn't. These are the
   "assemble the LEGO" tickets.</p>
   <div class="grid g3">
-    <div class="card pack"><h4>Plugin marketplace</h4>
-      <p class="why">Claude Code's layout is the de-facto standard (OpenHands and OIX adopted it); Codex ships curated +
-      remote marketplaces; DSH has a GitHub topic index. <span class="chip c-pack">packaging</span></p></div>
-    <div class="card pack"><h4>Desktop / native distribution</h4>
-      <p class="why">Eigent (Electron), Cline (Tauri), OpenCode/Codex (native binaries). DSH documents an Electron
-      path but ships none. <span class="chip c-pack">packaging</span></p></div>
+    <div class="card pack"><h4>Plugin marketplace <span class="chip c-eq">ecosystem-covered</span></h4>
+      <p class="why">Owner review: ≥7 marketplaces already exist — awesome-deepseek-harness-plugins ★197 (11,000+ plugins,
+      free search API), dsh-plugin-panel (in-app store), dsh-unified-market, dsh-plugin-recommend. No <i>first-party</i>
+      marketplace (per the #31 live-page finding), but that's an unowned surface, not a gap.</p></div>
+    <div class="card pack"><h4>Desktop / native distribution <span class="chip c-eq">ecosystem-covered</span></h4>
+      <p class="why">Owner review confirmed: dshcode ★445 (one-click Electron, macOS/Windows), multiple dsh-desktop
+      variants (Wails cross-platform, WebView2 with tray + auto-start, server-supervising shells). Community coverage
+      is strong; nothing first-party.</p></div>
     <div class="card pack"><h4>Public client SDK</h4>
       <p class="why">Codex generates TS/JSON schemas from its app-server; OpenCode publishes OpenAPI 3.1.
       DSH's typed gateway is private. <span class="chip c-pack">packaging</span></p></div>
@@ -492,14 +514,22 @@
       Is any shipped bundle schedule-enabled? Checkpoint completeness given shell effects.</p></div>
     <div class="card"><h4>Deep dives the map flags</h4>
       <p class="why">Cross-cutting semantics that per-harness profiles can't resolve alone: memory lifecycles,
-      channel-session models, multi-device capability profiles.</p></div>
+      channel-session models, multi-device capability profiles. New from the extensions: thClaws
+      <code>net_guard.rs</code>/<code>confine.rs</code> unread — if they gate egress, its D13 call revises.</p></div>
+    <div class="card"><h4>Post-synthesis chart candidates</h4>
+      <p class="why">Platform-vs-harness quadrant (Open WebUI); log-as-corpus — <code>/dream</code> mining session JSONL
+      as the first shipped session-query consumer (thClaws); per-channel approval sinks; skill-declared per-turn model
+      routing.</p></div>
   </div>
 </section>
 
 <footer>
-  Compiled 2026-08-30 from <code>docs/research/harness-map/</code> — 18 profiles + this report's source
-  (<code>capability-map.md</code>). Every claim traces to a primary source pinned in the profile index (§7 of the map).
-  Generated as a reading aid; the Markdown corpus remains authoritative.
+  Compiled 2026-08-30 from <code>docs/research/harness-map/</code> — 20 profiles (18 + post-synthesis extensions
+  #19 Open WebUI, #20 thClaws) + this report's source (<code>capability-map.md</code>). Every claim traces to a
+  primary source pinned in the profile index (§7 of the map). <b>Revised 2026-08-30 after owner review</b> with live
+  plugin-registry verification: memory → plugin-demonstrated, marketplace/desktop → ecosystem-covered, always-on host
+  narrowed to service lifecycle, approval-layer and model-routing cards clarified. Generated as a reading aid;
+  the Markdown corpus remains authoritative.
 </footer>
 
 </main>
