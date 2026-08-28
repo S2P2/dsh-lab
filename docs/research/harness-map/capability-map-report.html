@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Harness Capability Map — visual report</title>
+<style>
+  :root{
+    --ink:#1f2937; --muted:#6b7280; --faint:#9ca3af; --line:#e5e7eb; --paper:#f8fafc; --card:#ffffff;
+    --eq:#16a34a;   --eq-bg:#f0fdf4;
+    --pack:#2563eb; --pack-bg:#eff6ff;
+    --plug:#7c3aed; --plug-bg:#f5f3ff;
+    --core:#dc2626; --core-bg:#fef2f2;
+    --na:#6b7280;   --na-bg:#f3f4f6;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;color:var(--ink);background:var(--paper);
+       font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  main{max-width:1080px;margin:0 auto;padding:0 24px 80px}
+  header.hero{padding:48px 0 8px}
+  .kicker{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);font-weight:600}
+  h1{font-size:30px;line-height:1.2;margin:8px 0 6px}
+  .sub{color:var(--muted);max-width:70ch}
+  h2{font-size:21px;margin:56px 0 4px;padding-top:8px}
+  h2 .no{color:var(--faint);font-weight:600;margin-right:8px}
+  h3{font-size:16px;margin:26px 0 8px}
+  p{max-width:78ch}
+  .lead{color:var(--muted);margin-top:2px}
+  nav.toc{display:flex;flex-wrap:wrap;gap:8px;margin:26px 0 6px}
+  nav.toc a{text-decoration:none;font-size:13px;color:var(--pack);background:var(--pack-bg);
+            border:1px solid #dbeafe;border-radius:999px;padding:4px 12px}
+  nav.toc a:hover{background:#dbeafe}
+  /* classification vocabulary */
+  .legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-top:16px}
+  .leg{border-radius:10px;padding:12px 14px;border:1px solid var(--line);background:var(--card)}
+  .leg b{display:block;font-size:13.5px}
+  .leg span{font-size:13px;color:var(--muted)}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:7px;vertical-align:-1px}
+  /* chips */
+  .chip{display:inline-block;font-size:11.5px;font-weight:700;border-radius:6px;padding:2px 8px;letter-spacing:.02em;white-space:nowrap}
+  .c-eq{color:var(--eq);background:var(--eq-bg);border:1px solid #bbf7d0}
+  .c-pack{color:var(--pack);background:var(--pack-bg);border:1px solid #bfdbfe}
+  .c-plug{color:var(--plug);background:var(--plug-bg);border:1px solid #ddd6fe}
+  .c-core{color:var(--core);background:var(--core-bg);border:1px solid #fecaca}
+  .c-na{color:var(--na);background:var(--na-bg);border:1px solid #e5e7eb}
+  .c-mix{color:#b45309;background:#fffbeb;border:1px solid #fde68a}
+  /* source harness chips */
+  .src{display:inline-block;font-size:11.5px;color:#374151;background:#f3f4f6;border:1px solid var(--line);
+       border-radius:999px;padding:2px 9px;margin:2px 4px 2px 0}
+  .src.dim{color:var(--faint);border-style:dashed}
+  /* cards */
+  .grid{display:grid;gap:14px;margin-top:14px}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+  .g3{grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .card h4{margin:0 0 6px;font-size:15px}
+  .card .why{font-size:13.5px;color:var(--muted);margin:8px 0 0}
+  .card .seam{font-size:12px;color:var(--plug);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .count{float:right;font-size:20px;font-weight:800;color:var(--faint)}
+  .card.core{border-left:4px solid var(--core)}
+  .card.plug{border-left:4px solid var(--plug)}
+  .card.pack{border-left:4px solid var(--pack)}
+  /* evidence bars */
+  .bar{height:8px;border-radius:4px;background:var(--line);margin:10px 0 4px;overflow:hidden}
+  .bar>i{display:block;height:100%;border-radius:4px}
+  .bar-note{font-size:11.5px;color:var(--faint)}
+  /* dimension table */
+  table{border-collapse:collapse;width:100%;background:var(--card);border:1px solid var(--line);
+        border-radius:12px;overflow:hidden;font-size:13.5px;margin-top:14px}
+  th{background:#f1f5f9;text-align:left;padding:9px 12px;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+  td{padding:9px 12px;border-top:1px solid var(--line);vertical-align:top}
+  td.dim-name{white-space:nowrap;font-weight:600}
+  tr.sep td{background:#fbfdff}
+  /* spectra */
+  .spectrum{margin:18px 0 8px}
+  .spec-bar{height:10px;border-radius:5px;position:relative;margin:26px 4px 6px}
+  .spec-end{font-size:12px;color:var(--muted)}
+  .spec-point{position:absolute;top:-34px;transform:translateX(-50%);text-align:center}
+  .spec-point .nm{font-size:11.5px;font-weight:600;white-space:nowrap}
+  .spec-point .tick{width:2px;height:12px;background:var(--ink);margin:3px auto 0;border-radius:1px}
+  /* SVG graph */
+  .ecosys{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;margin-top:14px}
+  /* TL;DR */
+  .tldr{background:linear-gradient(135deg,#eef2ff,#f5f3ff);border:1px solid #e0e7ff;border-radius:14px;padding:20px 24px;margin-top:22px}
+  .tldr h2{margin:0 0 10px;font-size:18px}
+  .tldr ol{margin:8px 0 0;padding-left:22px}
+  .tldr li{margin:7px 0;max-width:80ch}
+  .note{font-size:13px;color:var(--muted);background:var(--na-bg);border:1px solid var(--line);
+        border-radius:10px;padding:10px 14px;margin-top:14px;max-width:80ch}
+  footer{margin-top:64px;color:var(--faint);font-size:12.5px;border-top:1px solid var(--line);padding-top:16px}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92em;background:#f1f5f9;
+       border-radius:4px;padding:1px 5px}
+  a{color:var(--pack)}
+  @media print{ nav.toc{display:none} body{background:#fff} .card,table{break-inside:avoid} }
+</style>
+</head>
+<body>
+<main>
+
+<header class="hero">
+  <div class="kicker">Research report · compiled 2026-08-30 · 17 harnesses profiled, all pinned to source</div>
+  <h1>Where DSH stands in the agent-harness world</h1>
+  <p class="sub">A visual companion to <code>docs/research/harness-map/capability-map.md</code> — the consolidated
+  capability map built from 18 research profiles (DSH itself + 17 other agent harnesses), each verified against
+  primary sources at a pinned commit.</p>
+</header>
+
+<nav class="toc">
+  <a href="#read">How to read</a>
+  <a href="#tldr">60-second summary</a>
+  <a href="#cohort">The cohort</a>
+  <a href="#core">Core gaps</a>
+  <a href="#plugins">Plugin opportunities</a>
+  <a href="#packaging">Packaging gaps</a>
+  <a href="#dimensions">D1–D20 map</a>
+  <a href="#patterns">Patterns &amp; spectra</a>
+  <a href="#next">Open questions</a>
+</nav>
+
+<section id="read">
+  <h2><span class="no">01</span>Five words you need, then everything reads itself</h2>
+  <p class="lead">Every finding in the map is a comparison against DSH, using exactly one of five labels.
+  This is the whole vocabulary — the rest of the report just applies it.</p>
+  <div class="legend">
+    <div class="leg"><b><span class="dot" style="background:var(--eq)"></span>Equivalent</b>
+      <span>DSH already does this (maybe by a different mechanism). Nothing to do.</span></div>
+    <div class="leg"><b><span class="dot" style="background:var(--pack)"></span>Packaging gap</b>
+      <span><b>No new capability code.</b> Everything needed already ships inside DSH — the missing work is assembly: config, a bundle/preset, a shell around existing parts. Cheap, low-risk.</span></div>
+    <div class="leg"><b><span class="dot" style="background:var(--plug)"></span>Plugin opportunity</b>
+      <span><b>New code required</b> — but it bolts onto an <i>existing seam</i> (the map names it). The kernel itself doesn't change.</span></div>
+    <div class="leg"><b><span class="dot" style="background:var(--core)"></span>Core gap</b>
+      <span>Needs runtime/host substrate DSH doesn't have. Real architectural decisions, not a weekend plugin.</span></div>
+    <div class="leg"><b><span class="dot" style="background:var(--na)"></span>Not applicable</b>
+      <span>A deliberate philosophy difference or someone else's SaaS — interesting, not a gap.</span></div>
+  </div>
+  <div class="note">One more distinction the map is strict about: <b>capability</b> (what the user/agent can do)
+  vs <b>mechanism</b> (how the code does it). Two harnesses can be Equivalent on a capability while implementing
+  it completely differently — that difference is recorded, but it doesn't change the label.<br><br>
+  <b>Yes, plugins ship as packages — so what separates the two "gap" labels?</b> The container isn't the axis;
+  <i>whether new capability logic must be written</i> is. Quick test:
+  can it be built with config/composition over what already exists? → <b>Packaging gap</b>.
+  Does it need a new package containing new logic, attaching at an existing seam? → <b>Plugin opportunity</b>.
+  Is there no seam to attach to at all? → <b>Core gap</b>.
+  Example pair: a <b>marketplace</b> is an index over the already-shipping plugin format (packaging — little or no new
+  runtime code), while an <b>LLM approval layer</b> requires writing actual judge/reviewer logic as a new
+  <code>tools/pre-execute</code> plugin (new code, existing seam).</div>
+</section>
+
+<section id="tldr">
+  <div class="tldr">
+    <h2>The 60-second version</h2>
+    <ol>
+      <li><b>DSH's architectural bets are winning.</b> Event-log-as-truth, Code Mode, goal models, bounded-context
+      discipline, typed client protocols — the biggest players (Codex, OpenHands, OpenCode, Claude Code) independently
+      re-derived all of them. You built what the industry is converging on.</li>
+      <li><b>The composition kernel is still unique.</b> No other harness in the cohort has DSH's
+      "everything is a plugin, swapped at runtime through typed seams" core. Pi's in-flight rewrite is the closest
+      independent parallel. This is DSH's differentiator, not a liability.</li>
+      <li><b>Six true core gaps</b>, ranked by industry consensus: <b>cross-session memory</b> (7 of 17 harnesses ship one),
+      network-egress policy, an always-on host for schedulers/channels, live remote sessions, interactive desktop
+      control, multi-device orchestration.</li>
+      <li><b>Cheapest high-value move:</b> an LLM approval/review layer. Five harnesses built one independently;
+      in DSH it fits the existing <code>tools/pre-execute</code> + <code>ctx.approval</code> seams with zero core changes.</li>
+      <li><b>Biggest packaging deficits:</b> no plugin marketplace, no desktop app, no public client SDK —
+      all composable from what exists, none composed.</li>
+      <li><b>Everything moves.</b> Every claim is pinned to a dated snapshot; several repos rewrite weekly.
+      Re-pin before quoting. (Cline even <i>removed</i> its browser tool mid-migration during our profiling window.)</li>
+    </ol>
+  </div>
+</section>
+
+<section id="cohort">
+  <h2><span class="no">02</span>The cohort — 17 harnesses, 8 archetypes</h2>
+  <p class="lead">Deliberately heterogeneous, so that anything <i>all</i> of them agree on is signal, not fashion.</p>
+  <div class="grid g3">
+    <div class="card"><h4>Personal assistants</h4><span class="src">OpenClaw</span><span class="src">Hermes</span><span class="src">nanobot</span>
+      <p class="why">Chat-channel-first, memory + cron + always-on daemons. The "life OS" school.</p></div>
+    <div class="card"><h4>Desktop coworkers</h4><span class="src">OpenWorker</span><span class="src">Eigent</span>
+      <p class="why">GUI apps over local agent runtimes; governance and workforce UX respectively.</p></div>
+    <div class="card"><h4>Research fleets</h4><span class="src">UFO³</span><span class="src">NemoClaw + OpenShell</span>
+      <p class="why">Microsoft's GUI-agent stack; NVIDIA's sandboxed blueprint runtime.</p></div>
+    <div class="card"><h4>Platform fleets</h4><span class="src">OpenHands</span><span class="src">Cloudflare OS</span>
+      <p class="why">Multi-repo / multi-tenant agent platforms; server-in-container and object-capability models.</p></div>
+    <div class="card"><h4>Coding agents, open</h4><span class="src">Codex</span><span class="src">OpenCode</span><span class="src">Pi</span><span class="src">Goose</span>
+      <p class="why">The convergence zone: Rust/TS runtimes re-deriving DSH's bets. Codex is the closest architectural match.</p></div>
+    <div class="card"><h4>Coding agents, closed</h4><span class="src">Claude Code</span><span class="src">Cline</span><span class="src">OIX + Workstation</span>
+      <p class="why">The standard-setter (SKILL.md, hooks); the editor-native; and a Rust fork of Codex.</p></div>
+  </div>
+</section>
+
+<section id="core">
+  <h2><span class="no">03</span>Six core gaps — what DSH structurally lacks</h2>
+  <p class="lead">Each needs host/runtime substrate DSH doesn't have. Bars show how many cohort members
+  already ship it — the industry-consensus pressure.</p>
+  <div class="grid g2">
+
+    <div class="card core"><span class="count">7/17</span>
+      <h4>1 · Cross-session memory</h4>
+      <div class="bar"><i style="width:41%;background:var(--core)"></i></div>
+      <span class="src">Claude Code</span><span class="src">Codex</span><span class="src">OpenClaw</span><span class="src">Hermes</span><span class="src">nanobot</span><span class="src">Agent Zero</span><span class="src">OIX</span><span class="src dim">goose ◐</span>
+      <p class="why">The cohort's most consistent absence in DSH. Codex's two-phase pipeline (extract → git-baselined
+      consolidation) is the reference; nanobot proves it needs no embedding database — just files + a bus.</p></div>
+
+    <div class="card core"><span class="count">6/17</span>
+      <h4>2 · Always-on host (schedulers &amp; channels)</h4>
+      <div class="bar"><i style="width:35%;background:var(--core)"></i></div>
+      <span class="src">OpenClaw</span><span class="src">Hermes</span><span class="src">nanobot</span><span class="src">Agent Zero</span><span class="src">Cline</span><span class="src">OpenHands</span><span class="src dim">goose (in-process only)</span>
+      <p class="why">Unattended cron, calendar semantics, channel presence. DSH's reminders are session-local by design;
+      the missing piece is daemon lifecycle, not the scheduler logic. (Session-scoped scheduling alone is plugin-reachable — see below.)</p></div>
+
+    <div class="card core"><span class="count">5/17</span>
+      <h4>3 · Live remote session fabric</h4>
+      <div class="bar"><i style="width:29%;background:var(--core)"></i></div>
+      <span class="src">Codex</span><span class="src">OpenCode</span><span class="src">OpenClaw</span><span class="src">Claude Code</span><span class="src">Cline</span>
+      <p class="why">Attach/detach from any client, relay sessions across machines, warp between hosts.
+      Codex's Noise-relayed exec-server is the strongest implementation. Breaks DSH's single-host log assumptions.</p></div>
+
+    <div class="card core"><span class="count">3/17</span>
+      <h4>4 · Network-egress sandbox policy</h4>
+      <div class="bar"><i style="width:18%;background:var(--core)"></i></div>
+      <span class="src">Codex</span><span class="src">OIX</span><span class="src">NemoClaw</span>
+      <p class="why">DSH confines the filesystem; all three treat network (domains, sockets, L7 proxying) as a first-class
+      policy surface. This extends the sandbox runners — genuinely core, not plugin.</p></div>
+
+    <div class="card core"><span class="count">4/17</span>
+      <h4>5 · Interactive desktop / screen control</h4>
+      <div class="bar"><i style="width:24%;background:var(--core)"></i></div>
+      <span class="src">UFO³</span><span class="src">Agent Zero</span><span class="src">Eigent</span><span class="src">OIX</span><span class="src dim">Claude Code ◐</span><span class="src dim">Cline (removed!)</span>
+      <p class="why">Media/input injection sits below DSH's tool pipeline. Counter-signal recorded: Cline stubbed its
+      browser tool out mid-migration. The browser-only slice is separately plugin-reachable (see #3 in opportunities).</p></div>
+
+    <div class="card core"><span class="count">3/17</span>
+      <h4>6 · Multi-device orchestration</h4>
+      <div class="bar"><i style="width:18%;background:var(--core)"></i></div>
+      <span class="src">UFO³ Galaxy</span><span class="src">Cloudflare OS</span><span class="src">OpenHands</span>
+      <p class="why">Agents spanning device graphs (living DAGs, mediated object capabilities, cross-instance leases).
+      DSH agents are single-host; there is no seam to attach a device fleet to.</p></div>
+  </div>
+</section>
+
+<section id="plugins">
+  <h2><span class="no">04</span>Ten plugin opportunities — existing seams, new code</h2>
+  <p class="lead">Ranked by evidence strength. Every one lands on a seam DSH already ships;
+  the purple text is the seam it attaches to.</p>
+  <div class="grid g2">
+
+    <div class="card plug"><span class="count">×5</span>
+      <h4>1 · LLM approval / review layer</h4><div class="seam">tools/pre-execute + ctx.approval</div>
+      <span class="src">goose judge+adversary</span><span class="src">Claude Code classifier</span><span class="src">OpenHands risk ensemble</span><span class="src">Codex Guardian</span><span class="src">OpenCode doom-loop</span>
+      <p class="why">Five independent "detection in front of approval" stacks. Zero core change in DSH — the strongest
+      consensus plugin play in the whole map.</p></div>
+
+    <div class="card plug"><span class="count">×4</span>
+      <h4>2 · Full MCP client surface</h4><div class="seam">dsh-mcp-client + typed events</div>
+      <span class="src">goose</span><span class="src">Codex</span><span class="src">Cline</span><span class="src">OIX</span>
+      <p class="why">DSH's bridge is deliberately tools-first. The cohort treats resources, prompts, elicitation,
+      sampling and MCP-Apps UI as table stakes.</p></div>
+
+    <div class="card plug"><span class="count">×4</span>
+      <h4>3 · Checkpoints &amp; per-step snapshots</h4><div class="seam">fs/* events + session projections</div>
+      <span class="src">Claude Code</span><span class="src">OpenCode</span><span class="src">Cline</span><span class="src">Pi</span>
+      <p class="why">Undo for agent work. One honest caveat carried in the map: shell-command effects bypass
+      fs events, so completeness needs the guarded pipeline.</p></div>
+
+    <div class="card plug"><span class="count">×4</span>
+      <h4>4 · Model catalogs, routing &amp; harness emulation</h4><div class="seam">ctx.llm + presets</div>
+      <span class="src">OpenCode models.dev</span><span class="src">goose registry</span><span class="src">OpenHands RouterLLM</span><span class="src">OIX provider→harness</span>
+      <p class="why">Routing intelligence above the adapter registry: cost-aware catalogs, mid-conversation model
+      switches, even OIX's trick of emulating whole harness surfaces per provider family.</p></div>
+
+    <div class="card plug"><span class="count">×3</span>
+      <h4>5 · Cross-harness import / migration</h4><div class="seam">sessions backend + embedding SDK</div>
+      <span class="src">goose (CC/Codex/Pi)</span><span class="src">Codex externalAgentConfig</span><span class="src">OIX</span>
+      <p class="why">Onboarding moat: let people bring their Claude Code / Codex history into DSH.</p></div>
+
+    <div class="card plug"><span class="count">×2</span>
+      <h4>6 · Browser automation via MCP</h4><div class="seam">ctx.tools + ctx.subprocess + ctx.attachments</div>
+      <span class="src">Agent Zero (DOM refs)</span><span class="src">UFO³ (action layer as MCP servers)</span>
+      <p class="why">Web reach without the desktop substrate — mount UFO-style MCP action servers through the existing
+      bridge. Keeps core gap #5 honest and separate.</p></div>
+
+    <div class="card plug"><span class="count">×2</span>
+      <h4>7 · In-process cron &amp; scheduled recipes</h4><div class="seam">dsh-schedule-style plugin + agent/* events</div>
+      <span class="src">goose cron recipes</span><span class="src">Cline agenda queue</span>
+      <p class="why">The session-scoped half of scheduling — goose proves it needs no daemon. The unattended half
+      stays a core gap (see #2 above).</p></div>
+
+    <div class="card plug"><span class="count">×2</span>
+      <h4>8 · Sandboxed plugin subprocesses</h4><div class="seam">ctx.subprocess + ctx.fs</div>
+      <span class="src">Cline</span><span class="src">Pi (Gondolin)</span>
+      <p class="why">Run third-party tool code in a container instead of trusting it — tool-routing containerization.</p></div>
+
+    <div class="card plug"><span class="count">×2</span>
+      <h4>9 · Stuck-detection &amp; nudge</h4><div class="seam">agent/* events</div>
+      <span class="src">OpenHands</span><span class="src">OpenCode</span>
+      <p class="why">Detect doom-loops and identical-call repetition; interrupt with a corrective nudge.</p></div>
+
+    <div class="card plug"><span class="count">×2</span>
+      <h4>10 · MCP Apps / mini-app UI surfaces</h4><div class="seam">typed events + ctx.webServer slot</div>
+      <span class="src">Codex</span><span class="src">goose_apps</span>
+      <p class="why">Let tools render live UI (io.modelcontextprotocol/ui) — pairs naturally with the full-MCP play #2.</p></div>
+  </div>
+</section>
+
+<section id="packaging">
+  <h2><span class="no">05</span>Six packaging gaps — DSH can already do this; nobody packaged it</h2>
+  <p class="lead">Capability exists as shipped parts; the composed product doesn't. These are the
+  "assemble the LEGO" tickets.</p>
+  <div class="grid g3">
+    <div class="card pack"><h4>Plugin marketplace</h4>
+      <p class="why">Claude Code's layout is the de-facto standard (OpenHands and OIX adopted it); Codex ships curated +
+      remote marketplaces; DSH has a GitHub topic index. <span class="chip c-pack">packaging</span></p></div>
+    <div class="card pack"><h4>Desktop / native distribution</h4>
+      <p class="why">Eigent (Electron), Cline (Tauri), OpenCode/Codex (native binaries). DSH documents an Electron
+      path but ships none. <span class="chip c-pack">packaging</span></p></div>
+    <div class="card pack"><h4>Public client SDK</h4>
+      <p class="why">Codex generates TS/JSON schemas from its app-server; OpenCode publishes OpenAPI 3.1.
+      DSH's typed gateway is private. <span class="chip c-pack">packaging</span></p></div>
+    <div class="card pack"><h4>Stock toolkits &amp; personas</h4>
+      <p class="why">Eigent's ~40 toolkits / 8 personas, OpenCode's agent presets, nanobot's persona files —
+      all composable in DSH today, none composed. <span class="chip c-pack">packaging</span></p></div>
+    <div class="card pack"><h4>Provider onboarding &amp; keyring</h4>
+      <p class="why">Subscription OAuth flows (Cline, Claude Code, goose, OpenCode) and OS keyring storage —
+      friction removers, not capabilities. <span class="chip c-pack">packaging</span></p></div>
+    <div class="card pack"><h4>Trace/debug tooling</h4>
+      <p class="why">Codex's opt-in raw-trace → semantic-graph reducer is the model: DSH has the log,
+      not the debugger UX. <span class="chip c-pack">packaging</span></p></div>
+  </div>
+  <div class="note"><b>Not applicable (not gaps):</b> SaaS credits/billing backends (Eigent, CC, Codex cloud) ·
+  research protocol stacks (UFO³ AIP) · framework doctrines (OpenCode's Effect vs Cordis) ·
+  fork-and-white-label distribution (goose) · directory-scan extension (nanobot, Agent Zero) · Cline's Memory Bank convention.</div>
+</section>
+
+<section id="dimensions">
+  <h2><span class="no">06</span>The D1–D20 map, one line per dimension</h2>
+  <p class="lead">The full grid from the synthesis, compressed. "Leaders" = strongest shippers in the cohort,
+  not an exhaustive list. Per-harness detail lives in each profile note.</p>
+  <table>
+    <thead><tr><th style="width:190px">Dimension</th><th>DSH today</th><th style="width:120px">Normalized call</th><th>Cohort leaders</th></tr></thead>
+    <tbody>
+      <tr><td class="dim-name">D1 · Runtime</td><td>Event-sourced log, swappable loop</td><td><span class="chip c-eq">Equivalent</span></td><td>OpenHands · Codex · Pi re-derived log-as-truth</td></tr>
+      <tr><td class="dim-name">D2 · Extension</td><td>Runtime composition kernel (unique)</td><td><span class="chip c-eq">DSH leads</span> <span class="chip c-pack">marketplace</span></td><td>CC config contract · Codex crates</td></tr>
+      <tr><td class="dim-name">D3 · Tools / MCP</td><td>Guarded pipeline, Code Mode, tools-first MCP</td><td><span class="chip c-eq">Equivalent</span> <span class="chip c-plug">full MCP</span></td><td>goose · Codex · Cline · OIX</td></tr>
+      <tr><td class="dim-name">D4 · Skills</td><td>Filesystem skills, plan mode</td><td><span class="chip c-eq">Equivalent</span> <span class="chip c-pack">CC formats</span></td><td>Claude Code (the standard)</td></tr>
+      <tr><td class="dim-name">D5 · Models</td><td>Multi-provider registry (wraps pi-ai)</td><td><span class="chip c-eq">Equivalent</span> <span class="chip c-plug">catalogs</span></td><td>Pi · OpenCode · OIX</td></tr>
+      <tr><td class="dim-name">D6 · Context</td><td>Compaction, pre-pruning, spill, epochs</td><td><span class="chip c-eq">Equivalent</span></td><td>Codex (bounded-items discipline ≈ DSH)</td></tr>
+      <tr class="sep"><td class="dim-name">D7 · Memory</td><td><b>Absent by scope</b></td><td><span class="chip c-core">Core gap</span></td><td>7 of 17 ship one — CC · Codex · OpenClaw · Hermes · nanobot · Agent Zero · OIX</td></tr>
+      <tr><td class="dim-name">D8 · Multi-agent</td><td>Delegation, children, Ralph, teams (mechanism)</td><td><span class="chip c-eq">Equivalent</span> <span class="chip c-pack">productization</span></td><td>Cline · Eigent · Codex</td></tr>
+      <tr class="sep"><td class="dim-name">D9 · Scheduling</td><td>Session-local reminders only</td><td><span class="chip c-mix">split call</span></td><td>In-process = plugin (goose); always-on = core (OpenClaw, Hermes, nanobot…)</td></tr>
+      <tr class="sep"><td class="dim-name">D10 · Channels</td><td>Web, headless, ACP subset, SDK</td><td><span class="chip c-mix">split call</span></td><td>Product-level = core (OpenClaw ~30, Hermes 20+, nanobot 17); single connector = plugin</td></tr>
+      <tr class="sep"><td class="dim-name">D11 · Remote / mobile</td><td>SSH launch, LAN fence</td><td><span class="chip c-core">Core gap</span></td><td>Codex relay · OpenCode warp · CC cloud · Cline hub</td></tr>
+      <tr class="sep"><td class="dim-name">D12 · Computer / browser</td><td>Absent by design (web fetch disabled)</td><td><span class="chip c-mix">split call</span></td><td>Browser-via-MCP = plugin (UFO³, Agent Zero); desktop substrate = core</td></tr>
+      <tr><td class="dim-name">D13 · Sandbox</td><td>File-effect sandbox, one-shot approval</td><td><span class="chip c-eq">fs Equivalent</span> <span class="chip c-core">network</span> <span class="chip c-plug">LLM review</span></td><td>NemoClaw confinement · Codex domains · goose/CC detection</td></tr>
+      <tr><td class="dim-name">D14 · Credentials</td><td>Reference-based, interactive auth</td><td><span class="chip c-eq">Equivalent</span></td><td>goose keyring · Cline OAuth</td></tr>
+      <tr><td class="dim-name">D15 · Persistence</td><td>Log backends, fork/resume, projections</td><td><span class="chip c-eq">Equivalent</span> <span class="chip c-plug">checkpoints</span></td><td>Codex leases · OpenCode snapshots · Pi trees</td></tr>
+      <tr><td class="dim-name">D16 · UI / client-server</td><td>Loopback web, typed gateway, slots</td><td><span class="chip c-eq">Equivalent</span> <span class="chip c-pack">public SDK</span></td><td>Codex · OpenCode · Cline</td></tr>
+      <tr><td class="dim-name">D17 · Deployment</td><td>npm-first, profiles, SSH story</td><td><span class="chip c-pack">packaging</span></td><td>Desktop/native shippers; SaaS = N/A</td></tr>
+      <tr><td class="dim-name">D18 · Artifacts / apps</td><td>Attachments, deliverables, spill</td><td><span class="chip c-plug">MCP Apps</span></td><td>Codex · goose</td></tr>
+      <tr><td class="dim-name">D19 · Observability</td><td>Log-is-trace, OTel, goals</td><td><span class="chip c-eq">Equivalent</span> <span class="chip c-pack">trace UX</span></td><td>Codex trace reducer · goals converging (nanobot, CC)</td></tr>
+      <tr><td class="dim-name">D20 · Resources</td><td>Metering, projections, cache discipline</td><td><span class="chip c-eq">Equivalent</span></td><td>Codex backpressure · OpenCode multi-tenant</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="patterns">
+  <h2><span class="no">07</span>Patterns worth internalizing</h2>
+
+  <h3>DSH's bets keep getting re-invented — independently</h3>
+  <div class="grid g2">
+    <div class="card"><h4>Event-log-as-truth</h4>
+      <span class="src">OpenHands (tree log)</span><span class="src">Codex (rollout + trace reducer)</span><span class="src">Pi (record log, in-flight)</span>
+      <p class="why">Three separate arrivals at DSH's core persistence thesis. Codex's reducer even preserves the
+      raw-vs-model-visible distinction.</p></div>
+    <div class="card"><h4>Code Mode</h4>
+      <span class="src">Codex</span><span class="src">OpenCode</span><span class="src">OIX</span>
+      <p class="why">Programmatic tool orchestration in a confined interpreter — three independent implementations
+      after DSH shipped it.</p></div>
+    <div class="card"><h4>Goal models</h4>
+      <span class="src">nanobot (≈ tool-for-tool)</span><span class="src">Codex thread/goal</span><span class="src">Claude Code</span>
+      <p class="why">Bounded long-run objectives with continuation turns — nanobot's version matches DSH's almost
+      exactly, down to the cap.</p></div>
+    <div class="card"><h4>Bounded-context / cache discipline</h4>
+      <span class="src">Codex</span>
+      <p class="why">Codex's model-visible-context rules (no rewrites, hard caps) mirror DSH's epochs and
+      KV-cache stability discipline.</p></div>
+  </div>
+
+  <h3>Two spectra the cohort organizes itself along</h3>
+
+  <div class="spectrum">
+    <div class="spec-end" style="float:left"><b>Confinement</b> — OS-enforced boundaries</div>
+    <div class="spec-end" style="float:right"><b>Detection</b> — LLM review stacks</div>
+    <div style="clear:both"></div>
+    <div class="spec-bar" style="background:linear-gradient(90deg,var(--eq),#f59e0b)">
+      <div class="spec-point" style="left:6%"><div class="nm">DSH</div><div class="tick"></div></div>
+      <div class="spec-point" style="left:20%"><div class="nm">NemoClaw</div><div class="tick"></div></div>
+      <div class="spec-point" style="left:36%"><div class="nm">Codex (both)</div><div class="tick"></div></div>
+      <div class="spec-point" style="left:64%"><div class="nm">OpenCode</div><div class="tick"></div></div>
+      <div class="spec-point" style="left:80%"><div class="nm">Claude Code</div><div class="tick"></div></div>
+      <div class="spec-point" style="left:94%"><div class="nm">goose</div><div class="tick"></div></div>
+    </div>
+    <p class="bar-note" style="clear:both;padding-top:26px">DSH has the strictest in-process invariants (one-shot grants, freshness guards);
+    goose the boldest detection stack (LLM judge + independent adversary). OpenHands inverts the question entirely —
+    the whole agent server runs <i>inside</i> the container.</p>
+  </div>
+
+  <div class="spectrum">
+    <div class="spec-end" style="float:left"><b>Fat client</b> — UI and runtime fused</div>
+    <div class="spec-end" style="float:right"><b>Full separation</b> — runtime as a service</div>
+    <div style="clear:both"></div>
+    <div class="spec-bar" style="background:linear-gradient(90deg,#38bdf8,var(--plug))">
+      <div class="spec-point" style="left:8%"><div class="nm">Claude Code</div><div class="tick"></div></div>
+      <div class="spec-point" style="left:36%"><div class="nm">DSH (host/browser)</div><div class="tick"></div></div>
+      <div class="spec-point" style="left:58%"><div class="nm">Codex app-server</div><div class="tick"></div></div>
+      <div class="spec-point" style="left:78%"><div class="nm">OpenCode (all clients)</div><div class="tick"></div></div>
+      <div class="spec-point" style="left:94%"><div class="nm">Cline (gRPC + hub)</div><div class="tick"></div></div>
+    </div>
+    <p class="bar-note" style="clear:both;padding-top:26px">How far the agent runtime is separated from its UI. DSH sits mid-spectrum —
+    a clean host/browser split, but its ACP surface is automation-only.</p>
+  </div>
+
+  <h3>The ecosystem already has edges into (and around) DSH</h3>
+  <div class="ecosys">
+    <svg viewBox="0 0 980 300" width="100%" role="img" aria-label="Ecosystem relationship graph">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#6b7280"/>
+        </marker>
+      </defs>
+      <!-- edges -->
+      <line x1="250" y1="150" x2="120" y2="60"  stroke="#7c3aed" stroke-width="2" marker-end="url(#arr)"/>
+      <line x1="250" y1="150" x2="120" y2="240" stroke="#7c3aed" stroke-width="2" marker-end="url(#arr)"/>
+      <line x1="250" y1="150" x2="480" y2="60"  stroke="#16a34a" stroke-width="2" marker-end="url(#arr)"/>
+      <line x1="700" y1="60"  x2="480" y2="60"  stroke="#6b7280" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#arr)"/>
+      <line x1="700" y1="60"  x2="700" y2="150" stroke="#6b7280" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#arr)"/>
+      <line x1="700" y1="60"  x2="480" y2="240" stroke="#6b7280" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#arr)"/>
+      <line x1="480" y1="60"  x2="700" y2="150" stroke="#6b7280" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#arr)"/>
+      <line x1="860" y1="60"  x2="760" y2="60"  stroke="#6b7280" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#arr)"/>
+      <!-- nodes -->
+      <g font-family="inherit" font-size="13" text-anchor="middle">
+        <rect x="205" y="132" width="120" height="36" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+        <text x="265" y="155" font-weight="700" fill="#5b21b6">DSH</text>
+
+        <rect x="40" y="42" width="130" height="32" rx="9" fill="#fff" stroke="#e5e7eb"/>
+        <text x="105" y="63" fill="#374151">pi-ai</text>
+        <rect x="40" y="222" width="130" height="32" rx="9" fill="#fff" stroke="#e5e7eb"/>
+        <text x="105" y="243" fill="#374151">Codex search</text>
+
+        <rect x="415" y="42" width="130" height="32" rx="9" fill="#fff" stroke="#e5e7eb"/>
+        <text x="480" y="63" font-weight="600" fill="#1f2937">Codex</text>
+        <rect x="635" y="42" width="130" height="32" rx="9" fill="#fff" stroke="#e5e7eb"/>
+        <text x="700" y="63" font-weight="600" fill="#1f2937">Claude Code</text>
+        <rect x="415" y="222" width="130" height="32" rx="9" fill="#fff" stroke="#e5e7eb"/>
+        <text x="480" y="243" fill="#374151">OIX (Codex fork)</text>
+        <rect x="635" y="132" width="130" height="32" rx="9" fill="#fff" stroke="#e5e7eb"/>
+        <text x="700" y="153" fill="#374151">OpenHands</text>
+        <rect x="795" y="42" width="130" height="32" rx="9" fill="#fff" stroke="#e5e7eb"/>
+        <text x="860" y="63" fill="#374151">goose</text>
+      </g>
+      <!-- edge labels -->
+      <g font-family="inherit" font-size="10.5" fill="#6b7280" text-anchor="middle">
+        <text x="168" y="92">wraps (dsh-llm-pi-ai)</text>
+        <text x="168" y="222">routes via web-search-router</text>
+        <text x="360" y="48">forked by OIX →</text>
+        <text x="590" y="48">formats adopted by →</text>
+        <text x="700" y="115">formats</text>
+        <text x="560" y="150">sessions</text>
+        <text x="822" y="35">imports CC/Codex/Pi sessions</text>
+      </g>
+    </svg>
+    <p class="bar-note">Solid purple = dependencies <i>into</i> DSH (it already wraps pi-ai and routes Codex search).
+    Dashed gray = ecosystem flows: Claude Code's formats spreading, OIX forking Codex's app-server, goose importing
+    other harnesses' sessions. The map is not cycle-free — DSH is already a participant, not just an observer.</p>
+  </div>
+
+  <div class="note"><b>The minimalism reveal (nanobot):</b> channels + memory + cron + persona turn out to be
+  "files plus one bus" in the leanest harnesses. The expensive part of those capabilities is not the capability —
+  it's the always-on host. That asymmetry should shape the order of any DSH roadmap.</div>
+</section>
+
+<section id="next">
+  <h2><span class="no">08</span>What's still open</h2>
+  <div class="grid g2">
+    <div class="card"><h4>Follow-up ticket charted</h4>
+      <p class="why"><a href="https://github.com/S2P2/dsh-lab/issues/33">Verify OpenClaw fleet/mantis/workboard machinery</a>
+      (#33) — a title-verified-only multi-agent cluster that could sharpen the D8 row.</p></div>
+    <div class="card"><h4>Re-pin before quoting</h4>
+      <p class="why">Fast movers: Codex (daily), OpenCode (V2 rewrite), Cline (mid-migration), OpenClaw channels,
+      Hermes (~daily), OpenWorker (beta), Cloudflare OS (early access).</p></div>
+    <div class="card"><h4>Baseline questions</h4>
+      <p class="why">Does a DSH TUI exist? Which event dispatch mode is real (<code>parallel</code> vs <code>bail</code>)?
+      Is any shipped bundle schedule-enabled? Checkpoint completeness given shell effects.</p></div>
+    <div class="card"><h4>Deep dives the map flags</h4>
+      <p class="why">Cross-cutting semantics that per-harness profiles can't resolve alone: memory lifecycles,
+      channel-session models, multi-device capability profiles.</p></div>
+  </div>
+</section>
+
+<footer>
+  Compiled 2026-08-30 from <code>docs/research/harness-map/</code> — 18 profiles + this report's source
+  (<code>capability-map.md</code>). Every claim traces to a primary source pinned in the profile index (§7 of the map).
+  Generated as a reading aid; the Markdown corpus remains authoritative.
+</footer>
+
+</main>
+</body>
+</html>
