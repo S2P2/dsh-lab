@@ -57,6 +57,7 @@
   .card .why{font-size:13.5px;color:var(--muted);margin:8px 0 0}
   .card .seam{font-size:12px;color:var(--plug);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
   .count{float:right;font-size:20px;font-weight:800;color:var(--faint)}
+  .card.eq{border-left:4px solid var(--eq)}
   .card.core{border-left:4px solid var(--core)}
   .card.plug{border-left:4px solid var(--plug)}
   .card.pack{border-left:4px solid var(--pack)}
@@ -141,9 +142,9 @@
   can it be built with config/composition over what already exists? → <b>Packaging gap</b>.
   Does it need a new package containing new logic, attaching at an existing seam? → <b>Plugin opportunity</b>.
   Is there no seam to attach to at all? → <b>Core gap</b>.
-  Example pair: a <b>marketplace</b> is an index over the already-shipping plugin format (packaging — little or no new
-  runtime code), while an <b>LLM approval layer</b> requires writing actual judge/reviewer logic as a new
-  <code>tools/pre-execute</code> plugin (new code, existing seam).</div>
+  Example pair: a <b>public generated client SDK</b> packages DSH's existing typed gateway for outside consumers
+  (composition over shipped parts), while an <b>LLM approval layer</b> requires writing actual judge/reviewer logic as
+  a new <code>tools/pre-execute</code> plugin (new code, existing seam).</div>
 </section>
 
 <section id="tldr">
@@ -173,7 +174,7 @@
 </section>
 
 <section id="cohort">
-  <h2><span class="no">02</span>The cohort — 19 harnesses, 8 archetypes</h2>
+  <h2><span class="no">02</span>The cohort — 19 harnesses, 6 archetypes</h2>
   <p class="lead">Deliberately heterogeneous, so that anything <i>all</i> of them agree on is signal, not fashion.
   Two joined post-synthesis (<span class="src" style="border-color:#ddd6fe">Open WebUI</span> <span class="src" style="border-color:#ddd6fe">thClaws</span>).</p>
   <div class="grid g3">
@@ -196,57 +197,56 @@
 
 <section id="core">
   <h2><span class="no">03</span>Core gaps — what DSH structurally lacks</h2>
-  <p class="lead">Each needs host/runtime substrate DSH doesn't have. Bars show how many cohort members
-  already ship it — the industry-consensus pressure. <b>Five survive the post-review ecosystem audit;</b>
-  the sixth (memory) was promoted below after plugins demonstrated it.</p>
-  <div class="grid g2">
+  <p class="lead"><b>Five survive the post-review ecosystem audit.</b> Each needs host/runtime substrate DSH
+  doesn't have; bars show how many of the 19 external harnesses already ship it.</p>
 
+  <h3>Corrected by ecosystem evidence — not a Core gap</h3>
+  <div class="grid">
     <div class="card plug"><span class="count">9/19 + ★532</span>
-      <h4>1 · Cross-session memory — <i>promoted out of core after review</i></h4>
+      <h4>Cross-session memory <span class="chip c-plug">plugin-demonstrated</span></h4>
       <div class="bar"><i style="width:47%;background:var(--plug)"></i></div>
       <span class="src">Claude Code</span><span class="src">Codex</span><span class="src">OpenClaw</span><span class="src">Hermes</span><span class="src">nanobot</span><span class="src">Agent Zero</span><span class="src">OIX</span><span class="src">thClaws</span><span class="src">Open WebUI</span>
       <span class="src" style="border-color:#ddd6fe">mnemon ★532</span><span class="src" style="border-color:#ddd6fe">dsh-memory-connect</span><span class="src" style="border-color:#ddd6fe">dsh-native-memory</span><span class="src" style="border-color:#ddd6fe">dsh-evolve</span>
-      <p class="why">Owner review overturned the "core gap" call: DSH plugins already ship the full pipeline —
-      auto-extraction, FTS5/semantic recall injected per turn, LLM consolidation via <code>ctx.llm</code>
-      (dsh-memory-connect); dsh-native-memory does it purely on native seams, no external server. A plain
-      MEMORY.md needs no plugin at all. The two post-synthesis profiles reinforce it: thClaws' markdown+KMS+`/dream`
-      and Open WebUI's per-user layered memory are both files+bus mechanisms, no embeddings. <b>Remaining core residue:</b>
-      only consolidation that runs with no session live (the always-on slice, next card).</p></div>
+      <p class="why">Owner review overturned the old Core-gap call: DSH plugins already ship extraction, recall,
+      per-turn injection and LLM consolidation on existing seams; a plain MEMORY.md needs no plugin at all. thClaws'
+      markdown + KMS + <code>/dream</code> and Open WebUI's per-user layered memory reinforce the mechanism call.
+      Only consolidation with no live session remains, and that folds into service lifecycle below.</p></div>
+  </div>
+
+  <h3>Five surviving Core gaps</h3>
+  <div class="grid g2">
+    <div class="card core"><span class="count">3/19</span>
+      <h4>1 · Network-egress sandbox policy</h4>
+      <div class="bar"><i style="width:16%;background:var(--core)"></i></div>
+      <span class="src">Codex</span><span class="src">OIX</span><span class="src">NemoClaw</span>
+      <p class="why">DSH confines the filesystem; all three treat network domains, sockets or L7 proxying as a
+      first-class policy surface. thClaws remains unread fog here, so it is not counted.</p></div>
 
     <div class="card core"><span class="count">8/19</span>
-      <h4>2 · Always-on host (service lifecycle &amp; channels)</h4>
+      <h4>2 · Service lifecycle &amp; channel presence</h4>
       <div class="bar"><i style="width:42%;background:var(--core)"></i></div>
       <span class="src">OpenClaw</span><span class="src">Hermes</span><span class="src">nanobot</span><span class="src">Agent Zero</span><span class="src">Cline</span><span class="src">OpenHands</span><span class="src">thClaws</span><span class="src">Open WebUI</span><span class="src dim">goose (in-process only)</span>
-      <p class="why">Narrowed by review: <b>dsh-timer-agent</b> (★4) already runs a host-resident cron engine that fires
-      real agent sessions on schedule. The post-synthesis profiles confirm the residue framing: thClaws ships a native
-      launchd/systemd daemon, Open WebUI runs RRULE automations server-side. What still needs substrate: running the
-      DSH host <i>unattended as a system service</i> (boot-start, supervision) and channel presence — inbound webhooks
-      at arbitrary times.</p></div>
+      <p class="why"><b>dsh-timer-agent</b> already proves host-resident cron can fire real agent sessions. The
+      surviving substrate is narrower: boot-start and supervision for an unattended DSH host, plus inbound channel
+      presence at arbitrary times.</p></div>
 
-    <div class="card core"><span class="count">5/17</span>
+    <div class="card core"><span class="count">5/19</span>
       <h4>3 · Live remote session fabric</h4>
-      <div class="bar"><i style="width:29%;background:var(--core)"></i></div>
+      <div class="bar"><i style="width:26%;background:var(--core)"></i></div>
       <span class="src">Codex</span><span class="src">OpenCode</span><span class="src">OpenClaw</span><span class="src">Claude Code</span><span class="src">Cline</span>
       <p class="why">Attach/detach from any client, relay sessions across machines, warp between hosts.
       Codex's Noise-relayed exec-server is the strongest implementation. Breaks DSH's single-host log assumptions.</p></div>
 
-    <div class="card core"><span class="count">3/17</span>
-      <h4>4 · Network-egress sandbox policy</h4>
-      <div class="bar"><i style="width:18%;background:var(--core)"></i></div>
-      <span class="src">Codex</span><span class="src">OIX</span><span class="src">NemoClaw</span>
-      <p class="why">DSH confines the filesystem; all three treat network (domains, sockets, L7 proxying) as a first-class
-      policy surface. This extends the sandbox runners — genuinely core, not plugin.</p></div>
-
-    <div class="card core"><span class="count">4/17</span>
-      <h4>5 · Interactive desktop / screen control</h4>
-      <div class="bar"><i style="width:24%;background:var(--core)"></i></div>
+    <div class="card core"><span class="count">4/19</span>
+      <h4>4 · Interactive desktop / screen control</h4>
+      <div class="bar"><i style="width:21%;background:var(--core)"></i></div>
       <span class="src">UFO³</span><span class="src">Agent Zero</span><span class="src">Eigent</span><span class="src">OIX</span><span class="src dim">Claude Code ◐</span><span class="src dim">Cline (removed!)</span>
       <p class="why">Media/input injection sits below DSH's tool pipeline. Counter-signal recorded: Cline stubbed its
-      browser tool out mid-migration. The browser-only slice is separately plugin-reachable (see #3 in opportunities).</p></div>
+      browser tool out mid-migration. The browser-only slice is separately plugin-reachable (see #6 in opportunities).</p></div>
 
-    <div class="card core"><span class="count">3/17</span>
-      <h4>6 · Multi-device orchestration</h4>
-      <div class="bar"><i style="width:18%;background:var(--core)"></i></div>
+    <div class="card core"><span class="count">3/19</span>
+      <h4>5 · Multi-device orchestration</h4>
+      <div class="bar"><i style="width:16%;background:var(--core)"></i></div>
       <span class="src">UFO³ Galaxy</span><span class="src">Cloudflare OS</span><span class="src">OpenHands</span>
       <p class="why">Agents spanning device graphs (living DAGs, mediated object capabilities, cross-instance leases).
       DSH agents are single-host; there is no seam to attach a device fleet to.</p></div>
@@ -336,11 +336,11 @@
   <p class="lead">Capability exists as shipped parts; the composed product doesn't. These are the
   "assemble the LEGO" tickets.</p>
   <div class="grid g3">
-    <div class="card pack"><h4>Plugin marketplace <span class="chip c-eq">ecosystem-covered</span></h4>
+    <div class="card eq"><h4>Plugin marketplace <span class="chip c-eq">ecosystem-covered</span></h4>
       <p class="why">Owner review: ≥7 marketplaces already exist — awesome-deepseek-harness-plugins ★197 (11,000+ plugins,
       free search API), dsh-plugin-panel (in-app store), dsh-unified-market, dsh-plugin-recommend. No <i>first-party</i>
       marketplace (per the #31 live-page finding), but that's an unowned surface, not a gap.</p></div>
-    <div class="card pack"><h4>Desktop / native distribution <span class="chip c-eq">ecosystem-covered</span></h4>
+    <div class="card eq"><h4>Desktop / native distribution <span class="chip c-eq">ecosystem-covered</span></h4>
       <p class="why">Owner review confirmed: dshcode ★445 (one-click Electron, macOS/Windows), multiple dsh-desktop
       variants (Wails cross-platform, WebView2 with tray + auto-start, server-supervising shells). Community coverage
       is strong; nothing first-party.</p></div>
@@ -370,23 +370,23 @@
     <thead><tr><th style="width:190px">Dimension</th><th>DSH today</th><th style="width:120px">Normalized call</th><th>Cohort leaders</th></tr></thead>
     <tbody>
       <tr><td class="dim-name">D1 · Runtime</td><td>Event-sourced log, swappable loop</td><td><span class="chip c-eq">Equivalent</span></td><td>OpenHands · Codex · Pi re-derived log-as-truth</td></tr>
-      <tr><td class="dim-name">D2 · Extension</td><td>Runtime composition kernel (unique)</td><td><span class="chip c-eq">DSH leads</span> <span class="chip c-pack">marketplace</span></td><td>CC config contract · Codex crates</td></tr>
-      <tr><td class="dim-name">D3 · Tools / MCP</td><td>Guarded pipeline, Code Mode, tools-first MCP</td><td><span class="chip c-eq">Equivalent</span> <span class="chip c-plug">full MCP</span></td><td>goose · Codex · Cline · OIX</td></tr>
+      <tr><td class="dim-name">D2 · Extension</td><td>Runtime composition kernel (unique)</td><td><span class="chip c-eq">DSH leads</span> <span class="chip c-eq">marketplace covered</span> <span class="chip c-plug">sandboxed plugins</span></td><td>CC config contract · Codex crates · Cline subprocesses</td></tr>
+      <tr><td class="dim-name">D3 · Tools / MCP</td><td>Guarded pipeline, Code Mode, tools-first MCP</td><td><span class="chip c-eq">Equivalent</span> <span class="chip c-plug">full MCP</span> <span class="chip c-pack">LSP depth</span></td><td>goose · Codex · Cline · OIX</td></tr>
       <tr><td class="dim-name">D4 · Skills</td><td>Filesystem skills, plan mode</td><td><span class="chip c-eq">Equivalent</span> <span class="chip c-pack">CC formats</span></td><td>Claude Code (the standard)</td></tr>
-      <tr><td class="dim-name">D5 · Models</td><td>Multi-provider registry (wraps pi-ai)</td><td><span class="chip c-eq">Equivalent</span> <span class="chip c-plug">catalogs</span></td><td>Pi · OpenCode · OIX</td></tr>
+      <tr><td class="dim-name">D5 · Models</td><td>Multi-provider registry (wraps pi-ai)</td><td><span class="chip c-eq">Equivalent</span> <span class="chip c-plug">routing intelligence</span> <span class="chip c-pack">OAuth</span></td><td>Pi · OpenCode · OpenHands · OIX</td></tr>
       <tr><td class="dim-name">D6 · Context</td><td>Compaction, pre-pruning, spill, epochs</td><td><span class="chip c-eq">Equivalent</span></td><td>Codex (bounded-items discipline ≈ DSH)</td></tr>
       <tr class="sep"><td class="dim-name">D7 · Memory</td><td><b>Absent in core by scope</b></td><td><span class="chip c-plug">plugin-demonstrated</span></td><td>9 of 19 ship one — CC · Codex · OpenClaw · Hermes · nanobot · Agent Zero · OIX · thClaws · Open WebUI — plus DSH's own plugins (mnemon ★532…)</td></tr>
       <tr><td class="dim-name">D8 · Multi-agent</td><td>Delegation, children, Ralph, teams (mechanism)</td><td><span class="chip c-eq">Equivalent</span> <span class="chip c-plug">workboard</span> <span class="chip c-pack">lanes</span></td><td>Cline · Eigent · Codex · OpenClaw Workboard (durable orchestration, #33)</td></tr>
-      <tr class="sep"><td class="dim-name">D9 · Scheduling</td><td>Session-local reminders only</td><td><span class="chip c-mix">split call</span></td><td>In-process = plugin (goose); always-on = core (OpenClaw, Hermes, nanobot…)</td></tr>
-      <tr class="sep"><td class="dim-name">D10 · Channels</td><td>Web, headless, ACP subset, SDK</td><td><span class="chip c-mix">split call</span></td><td>Product-level = core (OpenClaw ~30, Hermes 20+, nanobot 17); single connector = plugin</td></tr>
-      <tr class="sep"><td class="dim-name">D11 · Remote / mobile</td><td>SSH launch, LAN fence</td><td><span class="chip c-core">Core gap</span></td><td>Codex relay · OpenCode warp · CC cloud · Cline hub</td></tr>
+      <tr class="sep"><td class="dim-name">D9 · Scheduling</td><td>Session reminders; ecosystem timer plugin</td><td><span class="chip c-mix">split call</span></td><td>Scheduled firing = plugin-demonstrated; service lifecycle = core</td></tr>
+      <tr class="sep"><td class="dim-name">D10 · Channels</td><td>Web, headless, ACP subset, SDK</td><td><span class="chip c-mix">split call</span></td><td>Product-level presence = core; single connector = plugin</td></tr>
+      <tr class="sep"><td class="dim-name">D11 · Remote / mobile</td><td>SSH launch, LAN fence</td><td><span class="chip c-core">Core gap</span></td><td>Codex relay · OpenClaw nodes · OpenCode warp · CC cloud · Cline hub</td></tr>
       <tr class="sep"><td class="dim-name">D12 · Computer / browser</td><td>Absent by design (web fetch disabled)</td><td><span class="chip c-mix">split call</span></td><td>Browser-via-MCP = plugin (UFO³, Agent Zero); desktop substrate = core</td></tr>
       <tr><td class="dim-name">D13 · Sandbox</td><td>File-effect sandbox, one-shot approval</td><td><span class="chip c-eq">fs Equivalent</span> <span class="chip c-core">network</span> <span class="chip c-plug">LLM review</span></td><td>NemoClaw confinement · Codex domains · goose/CC detection</td></tr>
-      <tr><td class="dim-name">D14 · Credentials</td><td>Reference-based, interactive auth</td><td><span class="chip c-eq">Equivalent</span></td><td>goose keyring · Cline OAuth</td></tr>
-      <tr><td class="dim-name">D15 · Persistence</td><td>Log backends, fork/resume, projections</td><td><span class="chip c-eq">Equivalent</span> <span class="chip c-plug">checkpoints</span></td><td>Codex leases · OpenCode snapshots · Pi trees</td></tr>
+      <tr><td class="dim-name">D14 · Credentials</td><td>Reference-based, interactive auth</td><td><span class="chip c-eq">Equivalent</span> <span class="chip c-pack">OAuth + keyring</span></td><td>goose keyring · Cline OAuth</td></tr>
+      <tr><td class="dim-name">D15 · Persistence</td><td>Log backends, fork/resume, projections</td><td><span class="chip c-eq">Equivalent</span> <span class="chip c-plug">checkpoints</span> <span class="chip c-pack">writer leases</span></td><td>Codex leases · OpenCode snapshots · Pi trees</td></tr>
       <tr><td class="dim-name">D16 · UI / client-server</td><td>Loopback web, typed gateway, slots</td><td><span class="chip c-eq">Equivalent</span> <span class="chip c-pack">public SDK</span></td><td>Codex · OpenCode · Cline</td></tr>
-      <tr><td class="dim-name">D17 · Deployment</td><td>npm-first, profiles, SSH story</td><td><span class="chip c-pack">packaging</span></td><td>Desktop/native shippers; SaaS = N/A</td></tr>
-      <tr><td class="dim-name">D18 · Artifacts / apps</td><td>Attachments, deliverables, spill</td><td><span class="chip c-plug">MCP Apps</span></td><td>Codex · goose</td></tr>
+      <tr><td class="dim-name">D17 · Deployment</td><td>npm-first, profiles, SSH story</td><td><span class="chip c-eq">desktop covered</span> <span class="chip c-na">SaaS N/A</span></td><td>dshcode + dsh-desktop variants; cohort native shippers</td></tr>
+      <tr><td class="dim-name">D18 · Artifacts / apps</td><td>Attachments, deliverables, spill</td><td><span class="chip c-plug">MCP Apps</span> <span class="chip c-pack">mini-app product</span></td><td>Codex · goose</td></tr>
       <tr><td class="dim-name">D19 · Observability</td><td>Log-is-trace, OTel, goals</td><td><span class="chip c-eq">Equivalent</span> <span class="chip c-pack">trace UX</span></td><td>Codex trace reducer · goals converging (nanobot, CC)</td></tr>
       <tr><td class="dim-name">D20 · Resources</td><td>Metering, projections, cache discipline</td><td><span class="chip c-eq">Equivalent</span></td><td>Codex backpressure · OpenCode multi-tenant</td></tr>
     </tbody>
@@ -512,23 +512,20 @@
 <section id="next">
   <h2><span class="no">08</span>What's still open</h2>
   <div class="grid g2">
-    <div class="card"><h4>Follow-up ticket charted</h4>
-      <p class="why"><a href="https://github.com/S2P2/dsh-lab/issues/33">Verify OpenClaw fleet/mantis/workboard machinery</a>
-      (#33) — a title-verified-only multi-agent cluster that could sharpen the D8 row.</p></div>
     <div class="card"><h4>Re-pin before quoting</h4>
       <p class="why">Fast movers: Codex (daily), OpenCode (V2 rewrite), Cline (mid-migration), OpenClaw channels,
       Hermes (~daily), OpenWorker (beta), Cloudflare OS (early access).</p></div>
     <div class="card"><h4>Baseline questions</h4>
       <p class="why">Does a DSH TUI exist? Which event dispatch mode is real (<code>parallel</code> vs <code>bail</code>)?
-      Is any shipped bundle schedule-enabled? Checkpoint completeness given shell effects.</p></div>
-    <div class="card"><h4>Deep dives the map flags</h4>
-      <p class="why">Cross-cutting semantics that per-harness profiles can't resolve alone: memory lifecycles,
-      channel-session models, multi-device capability profiles. New from the extensions: thClaws
-      <code>net_guard.rs</code>/<code>confine.rs</code> unread — if they gate egress, its D13 call revises.</p></div>
+      Is any shipped bundle schedule-enabled? Can checkpoints be complete when shell effects bypass
+      <code>fs/write-intent</code>?</p></div>
+    <div class="card"><h4>Security posture questions</h4>
+      <p class="why">DSH's plain-HTTP <code>webServer</code> seam needs an origin-policy stance before channel plugins.
+      thClaws' <code>net_guard.rs</code>/<code>confine.rs</code> remain unread; do not revise the 3/19 D13 count until
+      targeted verification shows that they gate egress.</p></div>
     <div class="card"><h4>Post-synthesis chart candidates</h4>
-      <p class="why">Platform-vs-harness quadrant (Open WebUI); log-as-corpus — <code>/dream</code> mining session JSONL
-      as the first shipped session-query consumer (thClaws); per-channel approval sinks; skill-declared per-turn model
-      routing.</p></div>
+      <p class="why">Platform-vs-harness quadrant and absence ledger (Open WebUI); log-as-corpus via thClaws
+      <code>/dream</code>; thClaws' shared <code>handle_ipc</code> dispatch pattern; job-artifact snapshot atomicity.</p></div>
   </div>
 </section>
 
