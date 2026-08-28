@@ -151,8 +151,17 @@ Classes: **Equivalent** (DSH already enables; DSH mechanism named) · **Packagin
 1. **Browser internals** — Playwright vs DevTools-MCP split per profile documented at marketing depth; source-level confirmation not done. Low risk for classification (capability certain either way).
 2. **Tool-catalog completeness** — built-in tool list assembled from scattered doc mentions; a generated catalog exists somewhere (`config-tools`, `pnpm channels:catalog:gen` analogues) but was not extracted. Should be pulled before quoting exact tool counts.
 3. **WhatsApp/dock/team/codexdoc churn** — bundled↔official-plugin boundaries and the Teams/GoogleChat support-status flags move release-to-release; anything quoted should re-pin SHA.
-4. **Fleet / parallel-specialist-lanes / workboard / mantis / swabble** — directories and doc titles verified only; semantics unknown. Possibly significant multi-agent machinery left out of this profile.
+4. **Fleet / parallel-specialist-lanes / workboard / mantis / swabble** — *resolved 2026-08-28 by the [#33 follow-up](https://github.com/S2P2/dsh-lab/issues/33); see `openclaw-workboard-delta.md` (@ `533319b`) and the delta section below.*
 5. **MCP topology** — OpenClaw clearly consumes/serves MCP (browser user-profile attach, bundled MCP runtimes in cron teardown, `extensions/mcp`); client-vs-server vs both not pinned down.
 6. **Talk/voice pipeline** — gateway-controlled OpenAI Realtime WebRTC verified; local STT/TTS stack (`talk`, `voicewake`, realtime-transcription, tts docs; app mlx-tts) only inventoried.
 7. **Depth vs my line caps** — configuration-reference, multi-user, session-pruning/search internals, queue-steering modes (steer/followup/collect/interrupt named but not extracted), presence model, timezone/holiday handling: present, unread.
 8. **Docs drift risk** — Mintlify site builds from this tree but publish pipeline adds latency; clone == primary, site may lag slightly.
+
+## Delta — orchestration-adjacent surfaces (2026-08-28, #33)
+
+Full findings in `openclaw-workboard-delta.md` (@ `533319b`). Corrections to this profile:
+
+- The five title-only names are **not one multi-agent cluster**. **Workboard** is the substantive finding: a durable local orchestration layer above Gateway subagents — dependency-aware cards, claim tokens + TTL/heartbeats, deterministic per-card worker sessions, bounded dispatch (≤3 workers, one card per owner) with stale-claim recovery, `workboard_specify`/`workboard_decompose`, structured completion/block protocol, replay-safe notification cursors, workspace-authority re-intersection at dispatch; 35 `workboard_*` tools. DSH: **Plugin opportunity** (itself an OpenClaw plugin — the reusable idea is the lease/dependency/dispatch protocol, not a kernel primitive).
+- **Parallel specialist lanes** = operating pattern / product guidance over existing routing+subagents → DSH **Packaging gap** (ownership contracts, lane routing, coordinator packaging).
+- **Fleet** = isolated per-tenant instance cells (Docker/Podman lifecycle) → deployment/multi-tenant isolation, **not D8**; **mantis** = visual QA evidence infra, Not applicable; **swabble** = macOS wake-word/voice ingress daemon, plugin-plausible under D10/D12, not orchestration.
+- D8 synthesis consequence: "teams productization = Packaging gap" applies only to specialist lanes/UI; Workboard's durable coordination state is a separate **Plugin opportunity** row in the capability map.
