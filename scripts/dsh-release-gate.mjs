@@ -109,6 +109,7 @@ function runCommand(command, args, { cwd, env = process.env, quiet = false } = {
     env,
     encoding: 'utf8',
     windowsHide: true,
+    shell: process.platform === 'win32',
   });
 
   if (!quiet) {
@@ -393,7 +394,7 @@ function main() {
       const provenance = dump
         .split(/\r?\n/)
         .filter((line) => line.trimStart().startsWith('# =='));
-      if (!provenance.some((line) => line.includes(packageName))) {
+      if (!provenance.some((line) => line.trim() === `# == ${packageName}`)) {
         throw new Error(`config dump succeeded but contains no provenance for ${packageName}`);
       }
     });

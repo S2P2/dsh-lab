@@ -11,7 +11,7 @@ import {
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const gateScript = path.join(repoRoot, 'scripts', 'dsh-release-gate.mjs');
@@ -41,10 +41,10 @@ function createFixture(root, overrides = {}) {
   return { packageDir, manifest };
 }
 
-function installFakePnpm(root) {
+function installFakePnpm(root, { windowsShim = false } = {}) {
   const binDir = path.join(root, 'bin');
   mkdirSync(binDir, { recursive: true });
-  const executable = path.join(binDir, 'pnpm');
+  const executable = path.join(binDir, windowsShim ? 'pnpm.cmd' : 'pnpm');
   writeFileSync(
     executable,
     `#!/usr/bin/env node
@@ -108,6 +108,8 @@ if (argv[0] === 'dlx') {
     const bundle = profileManifest.dsh.profile.bundles.at(-1);
     if (process.env.FAKE_DSH_OMIT_PROVENANCE === '1') {
       process.stdout.write('# == @deepseek-ai/dsh-base\\n- id: base\\n');
+    } else if (process.env.FAKE_DSH_SIMILAR_PROVENANCE === '1') {
+      process.stdout.write('# == prefix-' + bundle + '-suffix\\n- id: other-bundle\\n');
     } else {
       process.stdout.write('# == ' + bundle + '\\n- id: fixture-dsh-plugin\\n  name: ' + JSON.stringify(bundle) + '\\n');
     }
@@ -120,23 +122,53 @@ process.exit(97);
 `,
   );
   chmodSync(executable, 0o755);
+
+  if (windowsShim) {
+    const cmd = path.join(binDir, 'cmd.exe');
+    writeFileSync(
+      cmd,
+      `#!/bin/sh
+command_line=''
+for arg in "$@"; do command_line="$arg"; done
+command_line=$(printf '%s' "$command_line" | sed 's/^"//; s/"$//')
+set -- $command_line
+program="$1"
+shift
+if [ "$program" = "pnpm" ]; then
+  program="$(dirname "$0")/pnpm.cmd"
+fi
+exec "$program" "$@"
+`,
+    );
+    chmodSync(cmd, 0o755);
+  }
+
   return binDir;
 }
 
-function runGate(root, packageDir, { args = [], env = {} } = {}) {
+function runGate(root, packageDir, { args = [], env = {}, simulateWindows = false } = {}) {
   const logPath = path.join(root, 'pnpm.log');
   const callerHome = path.join(root, 'caller-dsh-home');
   mkdirSync(callerHome, { recursive: true });
   writeFileSync(path.join(callerHome, 'sentinel.txt'), 'unchanged');
-  const binDir = installFakePnpm(root);
+  const binDir = installFakePnpm(root, { windowsShim: simulateWindows });
+  const gateArgs = simulateWindows
+    ? [
+        '-e',
+        `Object.defineProperty(process, 'platform', { value: 'win32' }); process.argv = [process.execPath, ${JSON.stringify(gateScript)}, ...process.argv.slice(1)]; await import(${JSON.stringify(pathToFileURL(gateScript).href)});`,
+        packageDir,
+        ...args,
+      ]
+    : [gateScript, packageDir, ...args];
 
-  const result = spawnSync(process.execPath, [gateScript, packageDir, ...args], {
+  const result = spawnSync(process.execPath, gateArgs, {
     cwd: repoRoot,
     env: {
       ...process.env,
       PATH: `${binDir}${path.delimiter}${process.env.PATH}`,
       DSH_HOME: callerHome,
       FAKE_PNPM_LOG: logPath,
+      ...(simulateWindows ? { TEMP: root, TMP: root, TMPDIR: root } : {}),
       ...env,
     },
     encoding: 'utf8',
@@ -291,6 +323,27 @@ test('config dump without selected bundle provenance fails composition', (t) =>
     assert.equal(result.status, 1);
     assert.match(result.stderr, /phase=composition/);
     assert.match(result.stderr, /contains no provenance for fixture-dsh-plugin/);
+  }),
+);
+
+test('config dump provenance must exactly match the selected bundle layer', (t) =>
+  withTemp(t, (root) => {
+    const { packageDir } = createFixture(root);
+    const { result } = runGate(root, packageDir, { env: { FAKE_DSH_SIMILAR_PROVENANCE: '1' } });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /phase=composition/);
+    assert.match(result.stderr, /contains no provenance for fixture-dsh-plugin/);
+  }),
+);
+
+test('native Windows pnpm command shims are launched through cmd.exe', (t) =>
+  withTemp(t, (root) => {
+    const { packageDir } = createFixture(root);
+    const { result, invocations } = runGate(root, packageDir, { simulateWindows: true });
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok(invocations.some(({ argv }) => argv[0] === 'pack'));
+    assert.ok(invocations.some(({ argv }) => argv.includes('plugin')));
+    assert.ok(invocations.some(({ argv }) => argv.includes('--dump-config')));
   }),
 );
 
