@@ -8,7 +8,7 @@
 
 ## 1. What the cohort is
 
-Nineteen systems — seventeen cohort profiles plus two post-synthesis extensions (§8) — deliberately heterogeneous: productized personal assistants (OpenClaw, Hermes, nanobot), governed desktop coworkers (OpenWorker, Eigent), research fleets (UFO³, NemoClaw+OpenShell), multi-repo platforms (OpenHands), server-first coding agents (OpenCode), closed-source standard-setters (Claude Code), open platforms converging on DSH's shape (Codex, Pi mid-flight), editor-natives (Cline, Goose), a multi-user cloud OS (Cloudflare OS), and a Rust Codex fork (OIX/Workstation). No cohort member is a Cordis-style runtime-composition kernel; **DSH's everything-is-a-plugin tree with typed seams is architecturally unique in this set**, with Pi's in-flight `AgentHarness` rewrite the closest independent convergence.
+Nineteen systems — seventeen cohort profiles plus two post-synthesis extensions (§8) — deliberately heterogeneous: productized personal assistants (OpenClaw, Hermes, nanobot, Agent Zero), governed desktop coworkers (OpenWorker, Eigent), research fleets (UFO³, NemoClaw+OpenShell), multi-repo platforms (OpenHands), server-first coding agents (OpenCode), closed-source standard-setters (Claude Code), open platforms converging on DSH's shape (Codex, Pi mid-flight), editor-natives (Cline, Goose), a multi-user cloud OS (Cloudflare OS), and a Rust Codex fork (OIX/Workstation). No cohort member is a Cordis-style runtime-composition kernel; **DSH's everything-is-a-plugin tree with typed seams is architecturally unique in this set**, with Pi's in-flight `AgentHarness` rewrite the closest independent convergence.
 
 ## 2. Consolidated dimension grid
 
