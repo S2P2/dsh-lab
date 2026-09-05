@@ -1,6 +1,6 @@
 # @s2p2/dsh-preset-authoring
 
-Host-owned shared preset drafts for DSH preset authoring. This first slice supplies the domain and adapter boundary only: it does not include Better Sidebar UI, Git implementation, or real DSH mount validation.
+Host-owned shared preset drafts for DSH preset authoring. The package supplies the draft domain plus a local-only Git adapter; it does not yet include Better Sidebar UI or real DSH mount validation.
 
 ## Public API
 
@@ -40,3 +40,16 @@ createPresetDraftService({
 ```
 
 Mount and apply re-read the saved target and reject with `STALE_PRESET_DRAFT` before calling their adapter if any file in the saved complete tree changed since the draft opened.
+
+## Local Git adapter
+
+`createLocalGitAdapter({ root })` owns local history for one editable preset root. Its interface is:
+
+- `ensureBaseline()` — initialize `.git` when absent and ensure `HEAD` exists.
+- `recordHead()` — return the committed pre-Apply rollback point.
+- `commitTarget(target, message)` — stage and commit only one target-directory pathspec.
+- `listHistory(target, { limit })` — return commits relevant to that target.
+- `restoreTarget(target, revision, message)` — replace the complete target directory from a revision, remove target-local untracked files, and commit the restoration.
+- `withRootLock(operation)` — hold the shared root lock across a multi-step Apply/validation transaction. The callback receives the same operations without nested locking.
+
+The adapter uses `execFile` without a shell, never configures a remote, and never pushes. Root mutations are serialized across adapter instances for the same resolved root. Operational Git/filesystem failures return `{ status: "degraded", operation, diagnostic }`; unsafe target pathspecs reject as caller errors. This keeps Git history and recovery optional rather than coupling them to preset loading or drafting.

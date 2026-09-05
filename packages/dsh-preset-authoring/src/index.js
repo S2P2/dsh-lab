@@ -11,6 +11,7 @@ export {
 	decodePresetText,
 	fingerprintPresetTree,
 } from "./tree.js";
+export { createLocalGitAdapter } from "./git.js";
 
 export const name = "dsh-preset-authoring";
 export const serviceName = "presetAuthoringDrafts";
