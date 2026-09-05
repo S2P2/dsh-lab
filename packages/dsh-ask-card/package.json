@@ -1,7 +1,7 @@
 {
   "name": "@s2p2/dsh-ask-card",
   "version": "0.0.1",
-  "description": "Rich transcript card for DSH's stock ask_user_question tool: shadows the generic IN/OUT tool row with a question/answer card when expanded. Collapsed-row behavior and the pending-question composer stay identical.",
+  "description": "Richer transcript view for DSH's stock ask_user_question tool: preserves the stock question/answer summary while adding offered options, recommendations, selections, custom answers, multi-select, and status context. Expanded cards use more UI space; collapsed behavior and the pending composer stay stock-like.",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
