@@ -1,14 +1,19 @@
 # @s2p2/dsh-ask-card
 
-Rich transcript card for the stock `ask_user_question` tool. Collapsed, the row is
-pixel-identical to stock (same DisclosureRow chrome, tokens, summaries, running sweep,
-state dots). Expanded, instead of the generic IN/OUT JSON card it renders a read-only
-question/answer card: every asked question with its options, the user's choices
-highlighted, recommended badges (`(recommended)` suffix convention), custom answers
-(highlighted like a selected option so free-text answers stand out while reviewing),
-multi-select checkboxes, skipped questions, and pending/cancelled/interrupted chips.
+Richer transcript view for the stock `ask_user_question` tool. Newer DSH versions
+already show the asked question and recorded answer in the stock expanded row; this
+plugin keeps that useful summary but adds the questionnaire context that stock still
+omits: every offered option, the user's selections highlighted, recommended badges
+(`(recommended)` suffix convention), custom answers (highlighted like a selected option
+so free-text answers stand out while reviewing), multi-select checkboxes, skipped
+questions, and pending/cancelled/interrupted chips.
 
-Any payload it cannot parse falls back to the exact stock IN/OUT card, so a transcript
+The tradeoff is density: the richer expanded card uses more vertical UI space than the
+stock view. Collapsed, the row stays pixel-identical to stock (same DisclosureRow chrome,
+tokens, summaries, running sweep, and state dots), so the extra space is only paid when
+you expand the transcript entry.
+
+Any payload it cannot parse falls back to the exact stock transcript row, so a transcript
 never renders worse than stock. The pending-question composer takeover
 (`dsh-client-ui-user-questions`) is a different slot and is untouched.
 
@@ -44,6 +49,7 @@ under `dev:web` HMR).
 
 ## Status
 
-🌱 early scaffold — verified against `@deepseek-ai/dsh-*` `0.1.1-rc.2`. The row chrome
-and fallback card were copied from that version's `ToolRow.module.css`; a DSH update may
-drift the stock look (the card itself only uses stable `--dsw-*` design tokens).
+🌱 early scaffold — originally verified against `@deepseek-ai/dsh-*` `0.1.1-rc.2`.
+Newer DSH releases have improved the stock `ask_user_question` transcript row to show
+the question and recorded answer, which narrows this plugin's role to the richer context
+above. The row chrome and fallback behavior can still drift as DSH evolves.
