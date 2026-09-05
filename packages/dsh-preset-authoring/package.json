@@ -6,6 +6,7 @@
   "main": "src/index.js",
   "exports": {
     ".": "./src/index.js",
+    "./client": "./src/client.js",
     "./domain": "./src/domain.js",
     "./git": "./src/git.js",
     "./package.json": "./package.json"
@@ -13,10 +14,24 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime"
+      ],
+      "platform": "web"
     }
   },
   "scripts": {
     "test": "node --test test/*.test.js"
+  },
+  "peerDependencies": {
+    "dsh-better-sidebar": "^0.18.0"
+  },
+  "peerDependenciesMeta": {
+    "dsh-better-sidebar": {
+      "optional": true
+    }
   },
   "files": ["src", "test", "cordis.patch.yml", "README.md"],
   "keywords": ["dsh", "deepseek-harness", "plugin", "preset", "authoring"],

@@ -1,6 +1,6 @@
 # @s2p2/dsh-preset-authoring
 
-Host-owned shared preset drafts for DSH preset authoring. The package supplies the draft domain plus a local-only Git adapter; it does not yet include Better Sidebar UI or real DSH mount validation.
+Host-owned shared preset drafts, a local-only Git adapter, and a Better Sidebar authoring panel for DSH preset authoring. The browser half is a hand-authored lazy-CJS bundle and consumes Better Sidebar 0.18 only through the external `ctx.get('betterSidebar')` / `registerTab` service contract. `dsh-better-sidebar` is an optional peer: when it is absent the Host service still loads, the browser logs a clear missing-panel status, and registration is reconciled if the service becomes available later. Real DSH mount validation remains a later integration.
 
 ## Public API
 
@@ -53,3 +53,29 @@ Mount and apply re-read the saved target and reject with `STALE_PRESET_DRAFT` be
 - `withRootLock(operation)` — hold the shared root lock across a multi-step Apply/validation transaction. The callback receives the same operations without nested locking.
 
 The adapter uses `execFile` without a shell, never configures a remote, and never pushes. Root mutations are serialized across adapter instances for the same resolved root. Operational Git/filesystem failures return `{ status: "degraded", operation, diagnostic }`; unsafe target pathspecs reject as caller errors. This keeps Git history and recovery optional rather than coupling them to preset loading or drafting.
+
+## Browser transport contract
+
+The Preset tab sends same-origin `POST /dsh-preset-authoring/api` requests with this envelope:
+
+```js
+{ sessionId, cwd, command }
+```
+
+The route returns `{ ok: true, value: panelSnapshot }` or `{ ok: false, error: { code?, message } }`. The Host route is intentionally a later implementation slice; the browser keeps no second Preset Draft and refreshes this authoritative panel snapshot while the tab is visible. The command vocabulary expected by the browser is:
+
+| Command | Purpose |
+|---|---|
+| `panel.snapshot` | Read roster, Session Preset, Target Preset, shared draft projection, validation/diff/history/Test slots |
+| `target.open` `{ targetId }` | Explicitly select a Target Preset without changing the Session Preset |
+| `target.copy` `{ sourceId, targetId }` | Copy a read-only system preset through the Host's DSH-native copy seam |
+| `draft.edit` `{ rowId, value }` | Apply one Host-described supported field edit to the shared draft |
+| `draft.toggle` `{ rowId, enabled }` | Enable/disable one Host-described supported row in the shared draft |
+| `draft.refreshAnalysis` | Refresh cheap preflight plus semantic/raw diff |
+| `draft.validateMount` | Run authoritative mount validation |
+| `draft.apply` | Explicitly apply the shared draft |
+| `history.load` | Load local history |
+| `history.restore` `{ revision }` | Manually restore a retained revision |
+| `test.start` `{ targetId }` | Hand the saved Target Preset to a separate fresh-session flow |
+
+`panelSnapshot` keeps roster/domain state Host-owned. Its browser-facing projection is `{ sessionPresetId, targets, target, stale, inspection: { categories }, semanticDiff, rawDiff, preflight, mount, apply, history, test }`. Categories contain rows with display metadata and, only where deterministic support exists, a `control` (`toggle`, `text`, `number`, or `select`). Unknown rows omit `control` and carry an explicit `metadata: "uninspected"` (or equivalent Host wording). Lifecycle slots use the domain's `{ status, value, diagnostic }` shape.
