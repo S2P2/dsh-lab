@@ -14,7 +14,7 @@ The composition stays close to the upstream Creator preset so it retains the nor
 
 ## Source and maintenance
 
-The preset composition and composition-authoring guidance are derived from DeepSeek Harness `master` as of 2026-08-28. See `UPSTREAM.md` for the source paths and license note.
+The preset composition began from DeepSeek Harness `master`; the composition-authoring guidance is synced to the installed DSH `0.1.2-rc.1` Cordis and agent-preset contracts. See `UPSTREAM.md` for the source paths and license note.
 
 When syncing with upstream, treat the upstream Creator preset as authoritative for composition rows and runtime capabilities. Re-apply the local skill refactor rather than assuming copied plugin rows remain current.
 

@@ -2,59 +2,32 @@
 
 Load this reference when locating, copying, editing, or mount-validating an agent preset.
 
-## Use the roster as the source of truth
+## Use the Host roster as the source of truth
 
-`ctx.agentPresets` owns preset discovery, authoring, and mount validation. Inspect its live API before relying on method signatures:
+`ctx.agentPresets` owns preset discovery, copying, resolution, and mount validation. First call `cordis_inspect_list`, then use the returned Host `Service.listService` provider and `cordis_inspect_query` to read the current `agentPresets` methods and signatures.
 
-```text
-cordis_inspect what:"api" name:"agentPresets"
-```
+Use that live contract rather than hard-coded install paths or a cached list of shipped presets. The current Host operations this workflow relies on are:
 
-Use the current contract rather than hard-coded install paths or a cached list of shipped presets. The important operations are:
-
-- `list()` — discover presets, including `id`, `trust`, and the resolved composition path.
+- `list()` — discover Host rows, including `id`, `trust`, and the resolved composition path.
 - `read(id)` — read one preset's composition text.
-- `copy(from, id, name?)` — create a user-owned copy in the writable preset root.
-- `resolve(id)` — resolve the actual composition path for a preset when the current API exposes it.
+- `copy(from, id, name?)` — copy a whole preset into the writable root; it resolves to `void`.
+- `resolve(id)` — resolve the actual Host path after `copy()` or before a direct file operation.
 - `standingKeyFor(id)` — mount-validate one preset using the same composition semantics a session start uses.
 
-Treat entries reported as `trust: system` as read-only templates. Author only against a user-owned preset.
+The browser-facing roster is intentionally path-free: it reports preset metadata, `isDefault`, health, and whether the deployment is authorable, while the Host retains filesystem locations. Join browser state to a Host capability when a path is required; never reconstruct one in Client code.
+
+Trust records where discovery found a preset, not whether an arbitrary path may be written. Treat `trust: system` as read-only, then have the Host establish that the resolved target directory is contained by its configured writable preset root before every edit/delete path. A `trust: user` row outside that root remains non-editable.
 
 ## Probe the roster when needed
 
-`cordis_mount` returns the mount acknowledgement, not arbitrary service results. When the roster is not otherwise exposed as a callable tool, mount a temporary plugin that injects `agentPresets` and `tools`, registers only the small probe you need, then unmount it when finished.
+Inspect APIs with `cordis_inspect_list` and `cordis_inspect_query`; neither tool invokes a business Service. When `agentPresets` is not otherwise callable, use the dynamic Plugin lifecycle:
 
-Example mount-validation probe:
+1. call `cordis_define` with one Host-only Package that injects only `agentPresets` and `tools` and registers one narrowly named probe Tool;
+2. activate the returned exact `pluginId` and `packageId` with `cordis_run mode:"run"`;
+3. call the probe on the next step and preserve any exact diagnostic;
+4. call `cordis_stop` to remove its Tool registration, then `cordis_undefine` to discard the definition.
 
-```js
-return {
-  name: 'preset-tools',
-  inject: ['agentPresets', 'tools'],
-  apply(ctx) {
-    harness.registerTool(ctx, harness.defineTool({
-      name: 'preset_check',
-      description: 'Mount-validate one preset by id.',
-      parameters: { id: { type: 'string', required: true } },
-      output: {
-        schema: { type: 'string' },
-        render(_args, value) {
-          return [{ type: 'text', text: value }]
-        },
-      },
-      async execute(args) {
-        try {
-          await ctx.agentPresets.standingKeyFor(args.id)
-          return 'mounted OK'
-        } catch (error) {
-          return error.message
-        }
-      },
-    }))
-  },
-}
-```
-
-Keep such mounts as probes, not shipped capabilities.
+A define records source but runs nothing. A run acknowledgement is lifecycle state, not the probe result. Keep each probe temporary and task-specific rather than creating a permanent `preset.*` Tool family.
 
 ## Copy-first authoring
 
@@ -62,17 +35,18 @@ Prefer `copy(from, id, name)` over constructing a preset directory from scratch.
 
 Use this sequence:
 
-1. Discover the source preset and confirm its current `trust` and identity through the roster.
-2. Copy it to a new user-owned id. Use an id accepted by the live API; current DSH expects lowercase alphanumerics and hyphens beginning with an alphanumeric character.
-3. Resolve the created preset's actual path from the roster or the copy result.
-4. Edit that resolved copy, including `preset.yml` display metadata and the necessary `agent.cordis.yml` rows.
-5. Apply the plane and realm rules from `SKILL.md`; when a changed row provides or may provide a Service, read [`REALMS.md`](REALMS.md).
-6. Run `standingKeyFor(id)` once the edit is coherent.
-7. After a clean mount validation, hand off to a real session using the new preset to verify its exposed tools and prompt surface.
+1. Discover the source preset and confirm its current `trust` and identity through the Host roster.
+2. Copy it to a new id. Use an id accepted by the live API; current DSH expects lowercase alphanumerics and hyphens beginning with an alphanumeric character.
+3. After `copy()` resolves with no value, call `resolve(newId)` and use that Host result as the created preset's actual path.
+4. Confirm the resolved target is contained by the writable preset root.
+5. Edit that resolved copy, including `preset.yml` display metadata and the necessary `agent.cordis.yml` rows, or open the shared Host draft when that service owns the authoring flow.
+6. Apply the plane and realm rules from `SKILL.md`; when a changed row provides or may provide a Service, read [`REALMS.md`](REALMS.md).
+7. Run `standingKeyFor(id)` once the finished candidate has been materialized coherently.
+8. After a clean mount validation, hand off to a fresh session using the new preset to verify its exposed tools and prompt surface.
 
 ## File writes outside the workspace
 
-The writable preset root may sit outside the current session workspace. Under a workspace-write sandbox, the first edit there can require explicit write escalation even though reading the resolved path does not.
+The Host's writable preset root and the current session workspace are independent boundaries. Under a workspace-write sandbox, an edit outside the workspace can require explicit write escalation even when the Host has confirmed the path is an editable preset.
 
 Escalate only the exact intended write and batch coherent file changes so the user is not asked to approve many tiny mutations. Host-side roster operations such as `copy()` do not need file-tool escalation.
 
@@ -90,6 +64,6 @@ Use the exact returned diagnostic to repair the composition. If the failure name
 
 A roster shape flag such as `broken` is not equivalent to mount validation. Shape validation can confirm that a file parses while still missing activation, dependency, or realm failures.
 
-`cordis_inspect` describes the composition of the session currently running the inspection. It does not prove that a newly authored preset will mount. Use `standingKeyFor(id)` for the authored preset itself.
+Cordis Inspect describes the live runtime being queried. It does not prove that a newly authored preset will mount. Use `standingKeyFor(id)` for the authored preset itself.
 
 A successful standing mount validates composition mechanics, not the final user-visible agent. The final behavioral check is a real session on the authored preset.
