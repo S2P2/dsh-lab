@@ -19,6 +19,8 @@ importers:
 
   packages/dsh-grilling-card: {}
 
+  packages/dsh-preset-authoring: {}
+
   packages/dsh-quota-bar: {}
 
 packages:

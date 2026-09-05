@@ -1,0 +1,23 @@
+{
+  "name": "@s2p2/dsh-preset-authoring",
+  "version": "0.0.1",
+  "description": "Host-owned shared preset drafts for DSH preset authoring.",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./domain": "./src/domain.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "files": ["src", "test", "cordis.patch.yml", "README.md"],
+  "keywords": ["dsh", "deepseek-harness", "plugin", "preset", "authoring"],
+  "license": "MIT"
+}
