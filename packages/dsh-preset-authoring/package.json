@@ -1,0 +1,46 @@
+{
+  "name": "@s2p2/dsh-preset-authoring",
+  "version": "0.0.1",
+  "description": "Host-owned shared preset drafts for DSH preset authoring.",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./client": "./src/client.js",
+    "./domain": "./src/domain.js",
+    "./git": "./src/git.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime"
+      ],
+      "platform": "web"
+    }
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "peerDependencies": {
+    "dsh-better-sidebar": "^0.18.0"
+  },
+  "peerDependenciesMeta": {
+    "dsh-better-sidebar": {
+      "optional": true
+    }
+  },
+  "files": ["src", "test", "cordis.patch.yml", "README.md"],
+  "keywords": ["dsh", "deepseek-harness", "plugin", "preset", "authoring"],
+  "license": "MIT",
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.0.2",
+    "@deepseek-ai/cordis-plugin-loader": "1.0.3",
+    "@deepseek-ai/dsh-agent-presets": "0.1.2-rc.1",
+    "@deepseek-ai/dsh-session-projection": "0.1.2-rc.1",
+    "@deepseek-ai/schemastery": "3.18.2"
+  }
+}

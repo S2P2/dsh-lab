@@ -1,0 +1,4 @@
+# dsh bundle patch: installs the Host-owned preset authoring service.
+- insert:
+    - id: dsh-preset-authoring
+      name: '@s2p2/dsh-preset-authoring'
