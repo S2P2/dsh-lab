@@ -1,6 +1,6 @@
 # @s2p2/dsh-preset-authoring
 
-Host-owned shared preset drafts, a local-only Git adapter, and a Better Sidebar authoring panel for DSH preset authoring. The browser half is a hand-authored lazy-CJS bundle and consumes Better Sidebar 0.18 only through the external `ctx.get('betterSidebar')` / `registerTab` service contract. `dsh-better-sidebar` is an optional peer: when it is absent the Host service still loads, the browser logs a clear missing-panel status, and registration is reconciled if the service becomes available later. Real DSH mount validation remains a later integration.
+Host-owned shared preset drafts, DSH-native Host adapters, a local-only Git adapter, and a Better Sidebar authoring panel for DSH preset authoring. The browser half is a hand-authored lazy-CJS bundle and consumes Better Sidebar 0.18 only through the external `ctx.get('betterSidebar')` / `registerTab` service contract. `dsh-better-sidebar` is an optional peer: when it is absent the Host service still loads, the browser logs a clear missing-panel status, and registration is reconciled if the service becomes available later. The package delegates authoritative roster, copy, directory materialization, and mount validation operations to DSH's `agentPresets` Host service; semantic editing and final Apply orchestration remain later integrations.
 
 ## Public API
 
@@ -24,6 +24,8 @@ Every snapshot always contains `semanticDiff`, `rawDiff`, `preflight`, `mount`, 
 ```
 
 The `files` array represents the complete preset directory, including preset-local skills and assets. `createPresetTree`, `fingerprintPresetTree`, `decodePresetFile`, `decodePresetText`, and `assertSafePresetPath` are exported for adapters. Canonical trees are sorted, binary-safe, JSON-safe, and fingerprinted as a framed SHA-256 whole-tree value. Paths must be relative, unambiguous POSIX-style paths contained by the target directory.
+
+`createHostAdapters(agentPresets)` delegates roster discovery, resolution, copying, and final mount validation to DSH. A target is editable only when its resolved composition path is physically contained by the first `user` root; trust labels alone never grant writes, so system and later user roots remain read-only. `copyTarget()` calls DSH's native `copy()` and then resolves the new id. The exported complete-directory read/materialize/restore helpers support candidate validation, and the mount adapter temporarily materializes the candidate, calls `standingKeyFor(targetId)`, restores the source tree, and rethrows DSH's original error object unchanged.
 
 Adapter functions receive `{ sessionPresetId, target, source, draft }`. These are seams, not implementations:
 

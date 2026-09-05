@@ -35,5 +35,12 @@
   },
   "files": ["src", "test", "cordis.patch.yml", "README.md"],
   "keywords": ["dsh", "deepseek-harness", "plugin", "preset", "authoring"],
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.0.2",
+    "@deepseek-ai/cordis-plugin-loader": "1.0.3",
+    "@deepseek-ai/dsh-agent-presets": "0.1.2-rc.1",
+    "@deepseek-ai/dsh-session-projection": "0.1.2-rc.1",
+    "@deepseek-ai/schemastery": "3.18.2"
+  }
 }
