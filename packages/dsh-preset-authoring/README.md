@@ -1,6 +1,6 @@
 # @s2p2/dsh-preset-authoring
 
-Host-owned shared preset drafts, DSH-native Host adapters, a local-only Git adapter, and a Better Sidebar authoring panel for DSH preset authoring. The browser half is a hand-authored lazy-CJS bundle and consumes Better Sidebar 0.18 only through the external `ctx.get('betterSidebar')` / `registerTab` service contract. `dsh-better-sidebar` is an optional peer: when it is absent the Host service still loads, the browser logs a clear missing-panel status, and registration is reconciled if the service becomes available later. The package delegates authoritative roster, copy, directory materialization, and mount validation operations to DSH's `agentPresets` Host service; semantic editing and final Apply orchestration remain later integrations.
+Host-owned shared preset drafts, semantic composition adapters, DSH-native Host adapters, a local-only Git adapter, and a Better Sidebar authoring panel for DSH preset authoring. The browser half is a hand-authored lazy-CJS bundle and consumes Better Sidebar 0.18 only through the external `ctx.get('betterSidebar')` / `registerTab` service contract. `dsh-better-sidebar` is an optional peer: when it is absent the Host service still loads, the browser logs a clear missing-panel status, and registration is reconciled if the service becomes available later. The package delegates authoritative roster, copy, directory materialization, and mount validation operations to DSH's `agentPresets` Host service; final Apply orchestration remains a later integration.
 
 ## Public API
 
@@ -10,9 +10,9 @@ The Host plugin provides `ctx.presetAuthoringDrafts` (service key `presetAuthori
 - `getSnapshot()` — immutable current state.
 - `subscribe(listener)` — observe snapshots; returns an unsubscribe function.
 
-`PRESET_DRAFT_COMMANDS` contains commands for session selection, target opening, whole-tree file edits, source-staleness checks, analysis, mount validation, apply, and history loading. Session preset identity is independent from the selected target.
+`PRESET_DRAFT_COMMANDS` contains commands for session selection, target opening, whole-tree file edits, narrow semantic edits, source-staleness checks, analysis, mount validation, apply, and history loading. Session preset identity is independent from the selected target. `EDIT_SEMANTIC` supports `setField` for existing plain scalar fields exposed by verified metadata and `setEnabled` for rows with absent or literal-boolean `disabled`; conditional `!!js` state is rejected without changing the draft.
 
-Every snapshot always contains `semanticDiff`, `rawDiff`, `preflight`, `mount`, `apply`, and `history` lifecycle slots. Their adapters are optional and report `unavailable` until a later integration supplies them. `readTarget(targetId)` is required to open a draft and returns:
+Every snapshot always contains `inspection`, `semanticDiff`, `rawDiff`, `preflight`, `mount`, `apply`, and `history` lifecycle slots. Their adapters are optional and report `unavailable` until an integration supplies them. `readTarget(targetId)` is required to open a draft and returns:
 
 ```js
 {
@@ -27,19 +27,26 @@ The `files` array represents the complete preset directory, including preset-loc
 
 `createHostAdapters(agentPresets)` delegates roster discovery, resolution, copying, and final mount validation to DSH. A target is editable only when its resolved composition path is physically contained by the first `user` root; trust labels alone never grant writes, so system and later user roots remain read-only. `copyTarget()` calls DSH's native `copy()` and then resolves the new id. The exported complete-directory read/materialize/restore helpers support candidate validation, and the mount adapter temporarily materializes the candidate, calls `standingKeyFor(targetId)`, restores the source tree, and rethrows DSH's original error object unchanged.
 
-Adapter functions receive `{ sessionPresetId, target, source, draft }`. These are seams, not implementations:
+Adapter functions receive `{ sessionPresetId, target, source, draft }`. `createSemanticAdapters(options)` supplies inspection, safe edit, cheap preflight, semantic-summary, and raw-diff adapters. Its optional `plugins` registry is the sole source of additional category, field, and default metadata; unregistered plugins remain explicitly uninspected.
 
 ```js
 createPresetDraftService({
   readTarget,
-  semanticDiff,
-  rawDiff,
-  preflight,
+  ...createSemanticAdapters({
+    plugins: {
+      "example-model": {
+        category: "Model",
+        fields: { "config.temperature": { type: "number", default: 1 } },
+      },
+    },
+  }),
   mount,
   apply,
   history,
 });
 ```
+
+The semantic parser accepts DSH's `!!js` scalars as inert source strings and never evaluates them. Supported edits replace only the addressed scalar range (or add a literal `disabled: true` to an existing row), preserving the rest of the original text and comments.
 
 Mount and apply re-read the saved target and reject with `STALE_PRESET_DRAFT` before calling their adapter if any file in the saved complete tree changed since the draft opened.
 

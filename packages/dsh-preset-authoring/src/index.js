@@ -6,6 +6,15 @@ export {
 	createPresetDraftService,
 } from "./domain.js";
 export {
+	SEMANTIC_CATEGORIES,
+	createRawDiff,
+	createSemanticAdapters,
+	editPreset,
+	inspectPreset,
+	preflightPreset,
+	summarizeSemanticDiff,
+} from "./semantics.js";
+export {
 	assertSafePresetPath,
 	createPresetTree,
 	decodePresetFile,

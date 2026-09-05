@@ -9,6 +9,7 @@ export const PRESET_DRAFT_COMMANDS = Object.freeze({
 	SET_SESSION: "session.set",
 	OPEN_TARGET: "target.open",
 	PUT_FILE: "draft.putFile",
+	EDIT_SEMANTIC: "draft.editSemantic",
 	DELETE_FILE: "draft.deleteFile",
 	CHECK_SOURCE: "source.check",
 	REFRESH_ANALYSIS: "draft.refreshAnalysis",
@@ -17,7 +18,7 @@ export const PRESET_DRAFT_COMMANDS = Object.freeze({
 	LOAD_HISTORY: "history.load",
 });
 
-const CHANNELS = ["semanticDiff", "rawDiff", "preflight", "mount", "apply", "history"];
+const CHANNELS = ["inspection", "semanticDiff", "rawDiff", "preflight", "mount", "apply", "history"];
 
 function slot(status = "idle", value = null, diagnostic = null) {
 	return Object.freeze({ status, value, diagnostic });
@@ -40,7 +41,7 @@ function cleanChannels(adapters) {
 
 function invalidatedDraftChannels(adapters) {
 	return Object.fromEntries(
-		["semanticDiff", "rawDiff", "preflight", "mount", "apply"]
+		["inspection", "semanticDiff", "rawDiff", "preflight", "mount", "apply"]
 			.map((name) => [name, adapters[name] ? slot() : unavailable(name)]),
 	);
 }
@@ -68,7 +69,7 @@ function adapterInput(state) {
  * One Host-owned source of shared preset draft state.
  *
  * Adapters are deliberately narrow. `readTarget` is the only required seam;
- * semanticDiff, rawDiff, preflight, mount, apply, and history may arrive in
+ * inspection, edit, semanticDiff, rawDiff, preflight, mount, apply, and history may arrive in
  * later slices without changing the service or snapshot shape.
  */
 export function createPresetDraftService(adapters = {}) {
@@ -100,6 +101,7 @@ export function createPresetDraftService(adapters = {}) {
 				tree: state.draftTree,
 			}),
 			stale: state.stale,
+			inspection: state.inspection,
 			semanticDiff: state.semanticDiff,
 			rawDiff: state.rawDiff,
 			preflight: state.preflight,
@@ -162,6 +164,20 @@ export function createPresetDraftService(adapters = {}) {
 		}
 	}
 
+	function putDraftFile(pathValue, content) {
+		const path = assertSafePresetPath(pathValue);
+		const files = state.draftTree
+			.filter((file) => file.path !== path)
+			.map((file) => ({ path: file.path, content: decodePresetFile(file) }));
+		files.push({ path, content });
+		const tree = createPresetTree(files);
+		return publish({
+			draftTree: tree,
+			draftFingerprint: fingerprintPresetTree(tree),
+			...invalidatedDraftChannels(adapters),
+		});
+	}
+
 	async function executeCommand(command) {
 		if (command === null || typeof command !== "object") throw new TypeError("command must be an object");
 		switch (command.type) {
@@ -182,19 +198,17 @@ export function createPresetDraftService(adapters = {}) {
 					...cleanChannels(adapters),
 				});
 			}
-			case PRESET_DRAFT_COMMANDS.PUT_FILE: {
+			case PRESET_DRAFT_COMMANDS.PUT_FILE:
 				requireEditableDraft();
-				const path = assertSafePresetPath(command.path);
-				const files = state.draftTree
-					.filter((file) => file.path !== path)
-					.map((file) => ({ path: file.path, content: decodePresetFile(file) }));
-				files.push({ path, content: command.content });
-				const tree = createPresetTree(files);
-				return publish({
-					draftTree: tree,
-					draftFingerprint: fingerprintPresetTree(tree),
-					...invalidatedDraftChannels(adapters),
-				});
+				return putDraftFile(command.path, command.content);
+			case PRESET_DRAFT_COMMANDS.EDIT_SEMANTIC: {
+				requireEditableDraft();
+				if (typeof adapters.edit !== "function") {
+					throw Object.assign(new Error("semantic edit adapter is not configured"), { code: "SEMANTIC_EDIT_UNAVAILABLE" });
+				}
+				const edit = await adapters.edit(adapterInput(state), command);
+				if (edit === null || typeof edit !== "object") throw new TypeError("semantic edit adapter returned no file edit");
+				return putDraftFile(edit.path, edit.content);
 			}
 			case PRESET_DRAFT_COMMANDS.DELETE_FILE: {
 				requireEditableDraft();
@@ -213,7 +227,7 @@ export function createPresetDraftService(adapters = {}) {
 				await checkSource();
 				return snapshot();
 			case PRESET_DRAFT_COMMANDS.REFRESH_ANALYSIS:
-				for (const channel of ["semanticDiff", "rawDiff", "preflight"]) await runAdapter(channel);
+				for (const channel of ["inspection", "semanticDiff", "rawDiff", "preflight"]) await runAdapter(channel);
 				return snapshot();
 			case PRESET_DRAFT_COMMANDS.VALIDATE_MOUNT:
 				if (await checkSource()) {

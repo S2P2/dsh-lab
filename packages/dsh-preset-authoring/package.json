@@ -9,6 +9,7 @@
     "./client": "./src/client.js",
     "./domain": "./src/domain.js",
     "./git": "./src/git.js",
+    "./semantics": "./src/semantics.js",
     "./package.json": "./package.json"
   },
   "dsh": {
@@ -25,6 +26,9 @@
   "scripts": {
     "test": "node --test test/*.test.js"
   },
+  "dependencies": {
+    "yaml": "^2.9.0"
+  },
   "peerDependencies": {
     "dsh-better-sidebar": "^0.18.0"
   },
@@ -33,14 +37,14 @@
       "optional": true
     }
   },
-  "files": ["src", "test", "cordis.patch.yml", "README.md"],
-  "keywords": ["dsh", "deepseek-harness", "plugin", "preset", "authoring"],
-  "license": "MIT",
   "devDependencies": {
     "@deepseek-ai/cordis": "4.0.2",
     "@deepseek-ai/cordis-plugin-loader": "1.0.3",
     "@deepseek-ai/dsh-agent-presets": "0.1.2-rc.1",
     "@deepseek-ai/dsh-session-projection": "0.1.2-rc.1",
     "@deepseek-ai/schemastery": "3.18.2"
-  }
+  },
+  "files": ["src", "test", "cordis.patch.yml", "README.md"],
+  "keywords": ["dsh", "deepseek-harness", "plugin", "preset", "authoring"],
+  "license": "MIT"
 }

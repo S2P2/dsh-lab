@@ -92,7 +92,7 @@ test("stable lifecycle slots delegate without embedding Git or mount internals",
 		history() { calls.push("history"); return [{ revision: "r1" }]; },
 	});
 	const initial = service.getSnapshot();
-	for (const field of ["semanticDiff", "rawDiff", "preflight", "mount", "apply", "history"]) {
+	for (const field of ["inspection", "semanticDiff", "rawDiff", "preflight", "mount", "apply", "history"]) {
 		assert.ok(field in initial);
 	}
 
@@ -138,7 +138,7 @@ test("unconfigured future adapter seams remain explicit", async () => {
 	await service.dispatch({ type: COMMAND.REFRESH_ANALYSIS });
 
 	const state = service.getSnapshot();
-	for (const field of ["semanticDiff", "rawDiff", "preflight", "mount", "apply", "history"]) {
+	for (const field of ["inspection", "semanticDiff", "rawDiff", "preflight", "mount", "apply", "history"]) {
 		assert.equal(state[field].status, "unavailable");
 	}
 });
