@@ -54,7 +54,9 @@ async function writeTree(directory, tree) {
 }
 
 /** Replace a preset directory with exactly the supplied canonical tree. */
-export async function materializePresetDirectory(directory, tree) {
+export async function materializePresetDirectory(directory, tree, operations = {}) {
+	const move = operations.rename ?? rename;
+	const remove = operations.remove ?? rm;
 	const target = resolve(directory);
 	const nonce = randomUUID();
 	const temporary = `${target}.materialize-${nonce}`;
@@ -65,20 +67,22 @@ export async function materializePresetDirectory(directory, tree) {
 	try {
 		await writeTree(temporary, tree);
 		try {
-			await rename(target, backup);
+			await move(target, backup);
 			movedOriginal = true;
 		} catch (error) {
 			if (error?.code !== "ENOENT") throw error;
 		}
 		try {
-			await rename(temporary, target);
+			await move(temporary, target);
 		} catch (error) {
-			if (movedOriginal) await rename(backup, target);
+			if (movedOriginal) await move(backup, target);
 			throw error;
 		}
-		if (movedOriginal) await rm(backup, { recursive: true, force: true });
+		if (movedOriginal) {
+			try { await remove(backup, { recursive: true, force: true }); } catch {}
+		}
 	} catch (error) {
-		await rm(temporary, { recursive: true, force: true });
+		try { await remove(temporary, { recursive: true, force: true }); } catch {}
 		throw error;
 	}
 }

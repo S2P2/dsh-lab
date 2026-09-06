@@ -60,10 +60,10 @@ export function createHostPresetAuthoring(agentPresets, options = {}) {
 				if (baseline.status === "degraded") throw gitError(baseline);
 				const head = await locked.recordHead();
 				if (head.status === "degraded") throw gitError(head);
-				await host.materializeTarget(input.target.id, input.draft.tree);
 				let value;
 				let validationError;
 				try {
+					await host.materializeTarget(input.target.id, input.draft.tree);
 					value = await host.validateMaterializedTarget(input.target.id);
 				} catch (error) {
 					validationError = error;
@@ -93,8 +93,8 @@ export function createHostPresetAuthoring(agentPresets, options = {}) {
 				if (currentFingerprint !== input.source.fingerprint) {
 					throw Object.assign(new Error("preset draft is stale"), { code: "STALE_PRESET_DRAFT" });
 				}
-				await host.materializeTarget(input.target.id, input.draft.tree);
 				try {
+					await host.materializeTarget(input.target.id, input.draft.tree);
 					const validation = await host.validateMaterializedTarget(input.target.id);
 					const committed = await locked.commitTarget(pathspec, `Apply preset ${input.target.id}`);
 					if (committed.status === "degraded") throw gitError(committed);

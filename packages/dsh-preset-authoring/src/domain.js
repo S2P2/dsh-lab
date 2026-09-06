@@ -313,7 +313,7 @@ export function createPresetDraftService(adapters = {}) {
 		return result;
 	}
 
-	return Object.freeze({
+	return {
 		dispatch,
 		getSnapshot: snapshot,
 		subscribe(listener) {
@@ -321,5 +321,5 @@ export function createPresetDraftService(adapters = {}) {
 			listeners.add(listener);
 			return () => listeners.delete(listener);
 		},
-	});
+	};
 }

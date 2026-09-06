@@ -101,15 +101,19 @@ test("manual history restore replaces the whole target directory and reopens the
 	assert.equal(flow.service.getSnapshot().source.fingerprint, flow.service.getSnapshot().draft.fingerprint);
 });
 
-function recoveryFlow({ fallbackFails = false } = {}) {
+function recoveryFlow({ fallbackFails = false, materializeFails = false } = {}) {
 	let files = [{ path: "agent.cordis.yml", content: "saved" }];
 	let committed = false;
+	const materializationFailure = new Error("materialization failed after replacing target");
 	const host = {
 		editableRoot() { return "/unused"; },
 		async listTargets() { return [{ id: "target", editable: true }]; },
 		async readTarget() { return { id: "target", editable: true, files }; },
 		async gitTarget() { return "target"; },
-		async materializeTarget(id, tree) { files = tree.map((file) => ({ path: file.path, content: Buffer.from(file.content, "base64") })); },
+		async materializeTarget(id, tree) {
+			files = tree.map((file) => ({ path: file.path, content: Buffer.from(file.content, "base64") }));
+			if (materializeFails) throw materializationFailure;
+		},
 		async validateMaterializedTarget() { throw new Error("mount rejected candidate"); },
 		async restoreTarget(id, tree) { if (fallbackFails) throw new Error("fallback failed /secret/path"); files = tree.map((file) => ({ path: file.path, content: Buffer.from(file.content, "base64") })); },
 	};
@@ -120,8 +124,20 @@ function recoveryFlow({ fallbackFails = false } = {}) {
 		async commitTarget() { committed = true; },
 	};
 	const flow = createHostPresetAuthoring(null, { host, git: { withRootLock: (operation) => operation(locked) } });
-	return { flow, files: () => files, committed: () => committed };
+	return { flow, files: () => files, committed: () => committed, materializationFailure };
 }
+
+test("Validate and Apply recover when materialization fails after replacing the target", async () => {
+	for (const type of [COMMAND.VALIDATE_MOUNT, COMMAND.APPLY]) {
+		const fixture = recoveryFlow({ materializeFails: true });
+		await fixture.flow.service.dispatch({ type: COMMAND.OPEN_TARGET, targetId: "target" });
+		await guarded(fixture.flow.service, { type: COMMAND.PUT_FILE, path: "agent.cordis.yml", content: "candidate" });
+
+		await assert.rejects(guarded(fixture.flow.service, { type }), (error) => error === fixture.materializationFailure);
+		assert.equal(Buffer.from(fixture.files()[0].content, "base64").toString("utf8"), "saved");
+		assert.equal(fixture.committed(), false);
+	}
+});
 
 test("mount validation recovers through captured source without committing candidate", async () => {
 	const fixture = recoveryFlow();

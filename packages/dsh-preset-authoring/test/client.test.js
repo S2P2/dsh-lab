@@ -231,6 +231,27 @@ test("visible component fetches Host snapshots and exposes the authoring workflo
 	harness.dispose();
 });
 
+test("target selector shows an explicit empty choice before a target is opened", async () => {
+	const harness = reactHarness();
+	const snapshot = { ...panel, target: null, stale: false, inspection: null };
+	const service = { current: { registerTab(tab) { return () => {}; } } };
+	let descriptor;
+	service.current.registerTab = (tab) => { descriptor = tab; return () => {}; };
+	const { plugin } = loadBundle({ React: harness.React });
+	plugin.apply(context(service), { transport: { command: async () => snapshot } });
+	const props = { visible: true, scope: { sessionId: "creator-session", cwd: "/repo" }, tab: {} };
+	harness.render(descriptor.component, props);
+	await new Promise((resolve) => setImmediate(resolve));
+	const tree = harness.render(descriptor.component, props);
+	const select = findAll(tree, (node) => node.type === "select")[0];
+	const options = findAll(select, (node) => node.type === "option");
+
+	assert.equal(select.props.value, "");
+	assert.equal(options[0].props.value, "");
+	assert.match(textOf(options[0]), /Select a target/i);
+	harness.dispose();
+});
+
 test("hidden component neither fetches nor polls", async () => {
 	const harness = reactHarness();
 	const commands = [];

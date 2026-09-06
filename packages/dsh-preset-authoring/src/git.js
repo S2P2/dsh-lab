@@ -79,6 +79,7 @@ export function createLocalGitAdapter(options) {
 	const gitBinary = options.gitBinary ?? "git";
 	const author = { ...DEFAULT_AUTHOR, ...options.author };
 	const execute = options.execFile ?? execFileAsync;
+	const inspect = options.lstat ?? lstat;
 
 	async function command(args) {
 		try {
@@ -98,7 +99,7 @@ export function createLocalGitAdapter(options) {
 
 	async function hasGitDirectory() {
 		try {
-			await lstat(resolve(root, ".git"));
+			await inspect(resolve(root, ".git"));
 			return true;
 		} catch (error) {
 			if (error?.code === "ENOENT") return false;
@@ -206,9 +207,24 @@ export function createLocalGitAdapter(options) {
 	async function listHistory(target, { limit = 50 } = {}) {
 		const { pathspec } = safeTarget(root, target);
 		if (!Number.isSafeInteger(limit) || limit <= 0) throw new TypeError("history limit must be a positive integer");
-		const baseline = await ensureBaseline();
-		if (baseline.status === "degraded") return baseline;
-		const args = ["log", `--max-count=${limit}`, "--format=%H%x00%cI%x00%s", "--", pathspec];
+		try {
+			if (!(await hasGitDirectory())) return Object.freeze({ status: "ready", entries: Object.freeze([]) });
+		} catch (error) {
+			return degraded("listHistory", error, gitBinary);
+		}
+		let args = ["rev-parse", "--verify", "HEAD"];
+		try {
+			await command(args);
+		} catch {
+			args = ["status", "--porcelain"];
+			try {
+				await command(args);
+				return Object.freeze({ status: "ready", entries: Object.freeze([]) });
+			} catch (error) {
+				return degraded("listHistory", error, gitBinary, error.gitArgs ?? args);
+			}
+		}
+		args = ["log", `--max-count=${limit}`, "--format=%H%x00%cI%x00%s", "--", pathspec];
 		try {
 			const output = (await command(args)).trim();
 			const entries = output === "" ? [] : output.split("\n").map((line) => {

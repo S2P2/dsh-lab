@@ -66,6 +66,29 @@ test("commits only the selected target while preserving unrelated working and in
 	assert.match(await git(root, "status", "--porcelain"), /^\?\? outside\.txt$/m);
 });
 
+test("listing history on a fresh root does not initialize Git or record unrelated files", async () => {
+	const root = await fixture();
+	const adapter = createLocalGitAdapter({ root });
+
+	const result = await adapter.listHistory("alpha");
+
+	assert.deepEqual(result, { status: "ready", entries: [] });
+	await assert.rejects(readFile(join(root, ".git", "HEAD")), { code: "ENOENT" });
+	assert.equal(await readFile(join(root, "notes.txt"), "utf8"), "baseline notes\n");
+});
+
+test("reports history filesystem probe failures as degraded", async () => {
+	const root = await fixture();
+	const failure = Object.assign(new Error("cannot inspect Git directory"), { code: "EACCES" });
+	const adapter = createLocalGitAdapter({ root, async lstat() { throw failure; } });
+
+	const result = await adapter.listHistory("alpha");
+
+	assert.equal(result.status, "degraded");
+	assert.equal(result.operation, "listHistory");
+	assert.equal(result.diagnostic.code, "EACCES");
+});
+
 test("lists only history relevant to the selected target", async () => {
 	const root = await fixture();
 	const adapter = createLocalGitAdapter({ root });
@@ -137,6 +160,7 @@ test("serializes root mutations and exposes one lock for an Apply transaction", 
 
 test("reports Git command failures as degraded history and recovery results", async () => {
 	const root = await fixture();
+	await mkdir(join(root, ".git"));
 	const adapter = createLocalGitAdapter({ root, gitBinary: "git-that-does-not-exist" });
 
 	for (const result of [

@@ -157,6 +157,7 @@ window.__ModuleLoader__.load({
 				h("div", { className: "s2p2p-status" }, "Session preset ", h("strong", null, snapshot.sessionPresetId || "unknown"), h("div", { className: "s2p2p-sub" }, "The running session stays on this preset.")),
 				h("label", { className: "s2p2p-label", htmlFor: "s2p2p-target" }, "Target preset"),
 				h("select", { id: "s2p2p-target", className: "s2p2p-select", value: target?.id || "", disabled: !!busy, onChange: (event) => run({ type: "target.open", targetId: event.target.value }) },
+				h("option", { value: "", disabled: true }, "Select a target…"),
 				(snapshot.targets || []).map((item) => h("option", { key: item.id, value: item.id }, item.title || item.id, item.editable === true ? "" : " · read-only")),
 			),
 			readOnly && target ? h("div", { className: "s2p2p-banner" }, h("div", null, target.id, " is read-only. System targets cannot be edited in place."), h("button", { className: "s2p2p-btn", disabled: !!busy, onClick: () => {

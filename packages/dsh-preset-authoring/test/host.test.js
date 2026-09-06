@@ -173,6 +173,28 @@ test("complete-directory helpers materialize and restore nested binary trees", a
 	assert.equal(await readFile(join(target, "skills/old.md"), "utf8"), "old");
 });
 
+test("materialization keeps the completed swap when backup cleanup partially fails", async (t) => {
+	const root = await fixture(t);
+	const target = join(root, "target");
+	await put(join(target, "agent.cordis.yml"), "- name: original\n");
+	await put(join(target, "skills", "old.md"), "old");
+	const candidate = createPresetTree([{ path: "agent.cordis.yml", content: "- name: candidate\n" }]);
+	let injected = false;
+
+	await materializePresetDirectory(target, candidate, {
+		async remove(path, options) {
+			if (!injected && path.includes(".backup-")) {
+				injected = true;
+				await rm(join(path, "skills"), { recursive: true });
+				throw new Error("backup cleanup failed after partial removal");
+			}
+			return rm(path, options);
+		},
+	});
+	assert.equal(injected, true);
+	assert.equal(await readFile(join(target, "agent.cordis.yml"), "utf8"), "- name: candidate\n");
+});
+
 test("mount materializes the candidate, calls standingKeyFor(targetId), restores, and rethrows the exact error", async (t) => {
 	const root = await fixture(t);
 	const targetDir = join(root, "target");
