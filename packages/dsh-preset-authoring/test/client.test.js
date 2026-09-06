@@ -101,6 +101,9 @@ function findAll(node, predicate, out = []) {
 }
 
 const panel = {
+	revision: 17,
+	sourceFingerprint: "source-fingerprint",
+	draftFingerprint: "draft-fingerprint",
 	sessionPresetId: "custom-creator",
 	targets: [
 		{ id: "system", title: "System", editable: false, origin: "system" },
@@ -122,7 +125,7 @@ const panel = {
 	semanticDiff: { status: "ready", value: ["Persona changed"] },
 	rawDiff: { status: "ready", value: "- old\n+ new" },
 	preflight: { status: "failed", diagnostic: { message: "schema mismatch" } },
-	mount: { status: "blocked", diagnostic: { message: "stale preset draft" } },
+	mount: { status: "blocked", diagnostic: { message: "stale preset draft", recoveryState: "recovered-via-fallback" } },
 	apply: { status: "idle" },
 	history: { status: "ready", value: [{ revision: "abc", title: "Known good" }] },
 	test: { status: "idle" },
@@ -200,7 +203,7 @@ test("visible component fetches Host snapshots and exposes the authoring workflo
 	assert.match(text, /uninspected/);
 	assert.match(text, /stale/i);
 	assert.match(text, /Preflight.*schema mismatch/s);
-	assert.match(text, /Mount.*stale preset draft/s);
+	assert.match(text, /Mount.*stale preset draft.*Recovered via captured-source fallback/s);
 	assert.match(text, /Semantic diff.*Persona changed/s);
 	assert.match(text, /Raw diff.*- old.*\+ new/s);
 	assert.match(text, /Known good.*Restore/s);
@@ -216,7 +219,15 @@ test("visible component fetches Host snapshots and exposes the authoring workflo
 	const input = findAll(tree, (node) => node.type === "input" && node.props["data-row-id"] === "persona")[0];
 	input.props.onBlur({ target: { value: "Precise" } });
 	await new Promise((resolve) => setImmediate(resolve));
-	assert.equal(commands.some(({ command }) => command.type === "draft.edit" && command.rowId === "persona" && command.value === "Precise"), true);
+	const edit = commands.find(({ command }) => command.type === "draft.edit").command;
+	assert.deepEqual({ targetId: edit.targetId, expectedRevision: edit.expectedRevision, expectedSourceFingerprint: edit.expectedSourceFingerprint, expectedDraftFingerprint: edit.expectedDraftFingerprint }, {
+		targetId: "system",
+		expectedRevision: 17,
+		expectedSourceFingerprint: "source-fingerprint",
+		expectedDraftFingerprint: "draft-fingerprint",
+	});
+	assert.equal(edit.rowId, "persona");
+	assert.equal(edit.value, "Precise");
 	harness.dispose();
 });
 

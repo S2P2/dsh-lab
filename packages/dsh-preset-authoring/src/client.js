@@ -47,7 +47,8 @@ window.__ModuleLoader__.load({
 					try { payload = await response.json(); } catch { payload = null; }
 					if (!response.ok || payload?.ok === false) {
 						const diagnostic = payload?.error || payload?.diagnostic || {};
-						const error = Object.assign(new Error(diagnostic.message || `Preset authoring request failed (${response.status})`), diagnostic.code ? { code: diagnostic.code } : {});
+						const recoveryNote = diagnostic.recoveryState === "unrecovered" ? " (fatal: candidate may still be persisted)" : diagnostic.recoveryState === "recovered-via-fallback" ? " (recovered via captured-source fallback)" : "";
+						const error = Object.assign(new Error((diagnostic.message || `Preset authoring request failed (${response.status})`) + recoveryNote), diagnostic.code ? { code: diagnostic.code } : {}, { diagnostic });
 						throw error;
 					}
 					return payload && Object.prototype.hasOwnProperty.call(payload, "value") ? payload.value : payload;
@@ -65,10 +66,13 @@ window.__ModuleLoader__.load({
 			if (!slot) return null;
 			const bad = ["failed", "blocked"].includes(slot.status);
 			const unavailable = slot.status === "unavailable";
+			const recovery = slot.diagnostic?.recoveryState || slot.value?.recoveryState;
+			const recoveryText = recovery === "unrecovered" ? "UNRECOVERED — candidate may still be persisted" : recovery === "recovered-via-fallback" ? "Recovered via captured-source fallback" : null;
 			return h("section", { className: "s2p2p-card" },
 				h("h3", null, title, " · ", slot.status || "idle"),
 				h("div", { className: "s2p2p-body" },
 					h("div", { className: "s2p2p-status " + (bad ? "bad" : unavailable ? "warn" : "") }, slot.diagnostic?.message || valueText(slot.value)),
+					recoveryText ? h("div", { className: "s2p2p-status " + (recovery === "unrecovered" ? "bad" : "warn") }, recoveryText) : null,
 				),
 			);
 		}
@@ -76,7 +80,8 @@ window.__ModuleLoader__.load({
 		function Row({ row, run, disabled }) {
 			const control = row.control;
 			const editDisabled = disabled || row.editable === false || !control;
-			const meta = [row.provenance, row.default === undefined ? null : `default: ${valueText(row.default)}`, row.metadata].filter(Boolean).join(" · ");
+			const provenance = row.configured === false ? "inherited default (edit to create an explicit override)" : row.provenance;
+			const meta = [provenance, row.default === undefined ? null : `default: ${valueText(row.default)}`, row.metadata].filter(Boolean).join(" · ");
 			let editor = null;
 			if (control?.type === "toggle") {
 				editor = h("input", { type: "checkbox", checked: control.operation === "field" ? row.value === true : row.enabled === true, disabled: editDisabled, "data-row-id": row.id, onChange: (event) => run(control.operation === "field" ? { type: "draft.edit", rowId: row.id, value: event.target.checked } : { type: "draft.toggle", rowId: row.id, enabled: event.target.checked }) });
@@ -126,7 +131,15 @@ window.__ModuleLoader__.load({
 				setBusy(command.type);
 				setError(null);
 				try {
-					const next = await transport.command(command, scope);
+					const guardedTypes = ["draft.edit", "draft.toggle", "draft.refreshAnalysis", "draft.validateMount", "draft.apply", "history.load", "history.restore"];
+					const outgoing = guardedTypes.includes(command.type) ? {
+						...command,
+						targetId: snapshot.target?.id,
+						expectedRevision: snapshot.revision,
+						expectedSourceFingerprint: snapshot.sourceFingerprint,
+						expectedDraftFingerprint: snapshot.draftFingerprint,
+					} : command;
+					const next = await transport.command(outgoing, scope);
 					if (next && typeof next === "object") setSnapshot(next);
 					await load();
 				} catch (cause) {
@@ -168,7 +181,7 @@ window.__ModuleLoader__.load({
 			h("details", { className: "s2p2p-card" }, h("summary", null, "Raw diff · ", snapshot.rawDiff?.status || "idle"), h("div", { className: "s2p2p-body s2p2p-diff" }, snapshot.rawDiff?.diagnostic?.message || valueText(snapshot.rawDiff?.value))),
 			h("section", { className: "s2p2p-card" }, h("h3", null, "History · ", snapshot.history?.status || "idle"), h("div", { className: "s2p2p-body" },
 				h("button", { className: "s2p2p-btn", disabled: !!busy || !target, onClick: () => run({ type: "history.load" }) }, "Refresh history"),
-				history.map((entry) => h("div", { className: "s2p2p-item s2p2p-row", key: entry.revision }, h("span", null, entry.title || entry.revision, h("span", { className: "s2p2p-meta" }, " · ", entry.revision)), h("button", { className: "s2p2p-btn", disabled: !!busy || readOnly, onClick: () => run({ type: "history.restore", revision: entry.revision }) }, "Restore"))),
+				history.map((entry) => h("div", { className: "s2p2p-item s2p2p-row", key: entry.revision }, h("span", null, entry.title || entry.revision, h("span", { className: "s2p2p-meta" }, " · ", entry.revision)), h("button", { className: "s2p2p-btn", disabled: !!busy || readOnly, onClick: () => run({ type: "history.restore", historyRevision: entry.revision }) }, "Restore"))),
 			)),
 			h("section", { className: "s2p2p-card" }, h("h3", null, "Fresh-session test · ", snapshot.test?.status || "idle"), h("div", { className: "s2p2p-body" },
 				h("div", { className: "s2p2p-sub" }, "Starts a separate session with the saved target. It never changes this running session preset; use dsh-context there for runtime truth."),

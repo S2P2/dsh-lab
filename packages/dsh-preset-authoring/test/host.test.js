@@ -3,6 +3,7 @@ import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promis
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
+import { Readable } from "node:stream";
 import {
 	apply,
 	createHostAdapters,
@@ -47,8 +48,13 @@ test("default activation provides the complete shared service and a disposable e
 	let routeDisposed = false;
 	let cleanup;
 	const serviceDispose = () => {};
+	let inspectedSession;
 	const ctx = {
-		agentPresets: { roots: [{ path: root, trust: "user" }] },
+		agentPresets: { roots: [{ path: root, trust: "user" }], async list() { return []; } },
+		get(name) {
+			assert.equal(name, "sessionController");
+			return { async inspect(id) { inspectedSession = id; return { meta: { agentPreset: "creator" } }; } };
+		},
 		provide(name, value) { this[name] = value; return serviceDispose; },
 		inject(names, callback) {
 			assert.deepEqual(names, ["webServer"]);
@@ -61,6 +67,14 @@ test("default activation provides the complete shared service and a disposable e
 	assert.equal(apply(ctx), serviceDispose);
 	assert.equal(ctx.presetAuthoringDrafts.getSnapshot().inspection.status, "idle");
 	assert.deepEqual({ kind: route.kind, path: route.path }, { kind: "exact", path: "/dsh-preset-authoring/api" });
+	const request = Readable.from([JSON.stringify({ sessionId: "s1", command: { type: "panel.snapshot" } })]);
+	request.method = "POST";
+	request.headers = { host: "127.0.0.1:3080", origin: "http://127.0.0.1:3080" };
+	request.socket = {};
+	let responseBody = "";
+	await route.handler(request, { writeHead() {}, end(value) { responseBody = value; } });
+	assert.equal(JSON.parse(responseBody).value.sessionPresetId, "creator");
+	assert.equal(inspectedSession, "s1");
 	cleanup();
 	assert.equal(routeDisposed, true);
 });

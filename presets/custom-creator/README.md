@@ -24,4 +24,4 @@ No secrets belong in this preset. Provider credentials remain in the DSH Host/pr
 
 ## Verification
 
-After editing the composition, mount-validate it using the Creator runtime guidance, then start a real session with `custom-creator` and verify that the Cordis tools and both preset-local Skills appear. For plugin-development changes, exercise one Host-only task, one Client UI task, and one failed update/rollback path so each disclosed reference is reached at least once.
+Open `custom-creator` in the real Web GUI and judge the end-to-end Preset-panel-to-fresh-session handoff as a user: the responsive drawer should remain readable and scrollable, recovery/default wording should be clear, and the launched session should feel distinct from the unchanged Creator session. Automated tests cover mount, command, rollback, and registration mechanics.

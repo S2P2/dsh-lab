@@ -4,6 +4,7 @@ import {
 	decodePresetFile,
 	fingerprintPresetTree,
 } from "./tree.js";
+import { diagnosticOf } from "./diagnostic.js";
 
 export const PRESET_DRAFT_COMMANDS = Object.freeze({
 	SET_SESSION: "session.set",
@@ -23,13 +24,6 @@ const CHANNELS = ["inspection", "semanticDiff", "rawDiff", "preflight", "mount",
 
 function slot(status = "idle", value = null, diagnostic = null) {
 	return Object.freeze({ status, value, diagnostic });
-}
-
-function diagnosticOf(error) {
-	return Object.freeze({
-		message: error instanceof Error ? error.message : String(error),
-		...(error && typeof error === "object" && "code" in error ? { code: error.code } : {}),
-	});
 }
 
 function unavailable(name) {
@@ -131,6 +125,30 @@ export function createPresetDraftService(adapters = {}) {
 		}
 	}
 
+	function guardTargetCommand(command) {
+		requireDraft();
+		const matches = command.targetId === state.target.id
+			&& command.expectedRevision === state.revision
+			&& command.expectedSourceFingerprint === state.sourceFingerprint
+			&& command.expectedDraftFingerprint === state.draftFingerprint;
+		if (matches) return;
+		throw Object.assign(new Error("preset draft changed; refresh and retry against the current snapshot"), {
+			code: "PRESET_DRAFT_CONFLICT",
+		});
+	}
+
+	const guardedCommands = new Set([
+		PRESET_DRAFT_COMMANDS.PUT_FILE,
+		PRESET_DRAFT_COMMANDS.EDIT_SEMANTIC,
+		PRESET_DRAFT_COMMANDS.DELETE_FILE,
+		PRESET_DRAFT_COMMANDS.CHECK_SOURCE,
+		PRESET_DRAFT_COMMANDS.REFRESH_ANALYSIS,
+		PRESET_DRAFT_COMMANDS.VALIDATE_MOUNT,
+		PRESET_DRAFT_COMMANDS.APPLY,
+		PRESET_DRAFT_COMMANDS.LOAD_HISTORY,
+		PRESET_DRAFT_COMMANDS.RESTORE_HISTORY,
+	]);
+
 	async function readTarget(targetId) {
 		if (typeof adapters.readTarget !== "function") throw new Error("readTarget adapter is not configured");
 		const loaded = await adapters.readTarget(targetId);
@@ -181,6 +199,7 @@ export function createPresetDraftService(adapters = {}) {
 
 	async function executeCommand(command) {
 		if (command === null || typeof command !== "object") throw new TypeError("command must be an object");
+		if (guardedCommands.has(command.type)) guardTargetCommand(command);
 		switch (command.type) {
 			case PRESET_DRAFT_COMMANDS.SET_SESSION:
 				return publish({ sessionPresetId: command.presetId ?? null });

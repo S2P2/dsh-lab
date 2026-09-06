@@ -49,7 +49,7 @@ For provider/consumer grouping, isolate semantics, Host-only boundaries, and Ser
 Load branch material only when the task reaches it:
 
 - **Authoring** — locating, copying, editing, probing, or mount-validating presets; sandbox writes; validation errors: read [`AUTHORING.md`](AUTHORING.md).
-- **Shared drafts** — inspecting or changing the Preset panel's candidate, handling stale source revisions, or temporarily bridging its Host service: read [`DRAFTS.md`](DRAFTS.md).
+- **Shared drafts** — inspecting or changing the Preset panel's candidate, handling stale Source Fingerprints, or temporarily bridging its Host service: read [`DRAFTS.md`](DRAFTS.md).
 - **Realms** — a row provides or may provide a Service, a consumer waits unexpectedly, or validation reports a Service collision/global publication: read [`REALMS.md`](REALMS.md).
 - **Native subagents** — exposing Codex or Claude Code delegation, installing their provider bundles, or adding named provider instances: read [`SUBAGENTS.md`](SUBAGENTS.md).
 
@@ -61,7 +61,7 @@ Load branch material only when the task reaches it:
 - every changed capability has an explicit Host/Agent plane decision;
 - every changed Service provider has resolved ownership and realm placement;
 - metadata and composition edits reach either the roster-resolved target or its one Host-owned shared draft;
-- when a draft was used, each mutation carried the exact current source revision and did not overwrite a stale source;
+- when a draft was used, each target-scoped command carried the exact target id, service revision, Source Fingerprint, and draft fingerprint and did not overwrite a stale source;
 - standing mount validation returns successfully with no relevant inactive row or Service diagnostic.
 
 **Behavioral verification** is complete only when a real session using that preset exposes the intended Tools and prompt surface. A clean standing mount proves the composition can mount; it does not by itself prove the resulting Agent has the intended behavior.

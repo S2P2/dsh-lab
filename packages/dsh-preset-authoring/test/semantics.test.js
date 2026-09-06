@@ -22,11 +22,16 @@ function draftYaml(service) {
 	return decodePresetText(service.getSnapshot().draft.tree.find((file) => file.path === "agent.cordis.yml"));
 }
 
+function guarded(service, command) {
+	const state = service.getSnapshot();
+	return service.dispatch({ ...command, targetId: state.target.id, expectedRevision: state.revision, expectedSourceFingerprint: state.source.fingerprint, expectedDraftFingerprint: state.draft.fingerprint });
+}
+
 test("shared draft seam inspects a real DSH composition without evaluating !!js", async () => {
 	const source = await readFile(creatorPath, "utf8");
 	const service = createPresetDraftService({ ...memoryTarget(source), ...createSemanticAdapters() });
 	await service.dispatch({ type: COMMAND.OPEN_TARGET, targetId: "custom-creator" });
-	await service.dispatch({ type: COMMAND.REFRESH_ANALYSIS });
+	await guarded(service, { type: COMMAND.REFRESH_ANALYSIS });
 
 	const state = service.getSnapshot();
 	assert.equal(state.preflight.status, "ready");
@@ -69,7 +74,7 @@ test("semantic edit changes only an existing scalar and keeps comments and surro
 	const source = `# header stays\n- id: web\n  name: '@deepseek-ai/dsh-tool-web'\n  config:\n    fetch: true # keep this comment\n    searchTimeoutMs: 60000\n\n- id: mystery\n  name: third-party-plugin\n`;
 	const service = createPresetDraftService({ ...memoryTarget(source), ...createSemanticAdapters() });
 	await service.dispatch({ type: COMMAND.OPEN_TARGET, targetId: "target" });
-	await service.dispatch({
+	await guarded(service, {
 		type: COMMAND.EDIT_SEMANTIC,
 		rowId: "web",
 		operation: "setField",
@@ -80,7 +85,7 @@ test("semantic edit changes only an existing scalar and keeps comments and surro
 	assert.equal(draftYaml(service), source.replace("fetch: true", "fetch: false"));
 	assert.equal(service.getSnapshot().preflight.status, "idle", "semantic edits invalidate analysis channels");
 	await assert.rejects(
-		service.dispatch({
+		guarded(service, {
 			type: COMMAND.EDIT_SEMANTIC,
 			rowId: "mystery",
 			operation: "setField",
@@ -95,8 +100,8 @@ test("multiline field edits remain valid without reformatting the composition", 
 	const source = `# preserve\n- id: persona\n  name: '@deepseek-ai/dsh-persona'\n  config:\n    text: |-\n      old text\n- id: next\n  name: unknown-mcp-plugin\n`;
 	const service = createPresetDraftService({ ...memoryTarget(source), ...createSemanticAdapters() });
 	await service.dispatch({ type: COMMAND.OPEN_TARGET, targetId: "target" });
-	await service.dispatch({ type: COMMAND.EDIT_SEMANTIC, rowId: "persona", operation: "setField", path: "config.text", value: "first\nsecond" });
-	await service.dispatch({ type: COMMAND.REFRESH_ANALYSIS });
+	await guarded(service, { type: COMMAND.EDIT_SEMANTIC, rowId: "persona", operation: "setField", path: "config.text", value: "first\nsecond" });
+	await guarded(service, { type: COMMAND.REFRESH_ANALYSIS });
 
 	assert.equal(service.getSnapshot().preflight.value.valid, true);
 	assert.equal(service.getSnapshot().inspection.value.categories[0].rows[0].fields[0].value, "first\nsecond");
@@ -109,14 +114,14 @@ test("boolean row toggles are safe while conditional !!js state is preserved", a
 	const source = `- id: plain\n  name: '@deepseek-ai/dsh-tool-fs'\n- id: off\n  name: '@deepseek-ai/dsh-tool-web'\n  disabled: true # reason\n- id: conditional\n  name: '@deepseek-ai/dsh-tool-bash'\n  disabled: !!js process.platform === 'win32'\n`;
 	const service = createPresetDraftService({ ...memoryTarget(source), ...createSemanticAdapters() });
 	await service.dispatch({ type: COMMAND.OPEN_TARGET, targetId: "target" });
-	await service.dispatch({ type: COMMAND.EDIT_SEMANTIC, rowId: "plain", operation: "setEnabled", enabled: false });
-	await service.dispatch({ type: COMMAND.EDIT_SEMANTIC, rowId: "off", operation: "setEnabled", enabled: true });
+	await guarded(service, { type: COMMAND.EDIT_SEMANTIC, rowId: "plain", operation: "setEnabled", enabled: false });
+	await guarded(service, { type: COMMAND.EDIT_SEMANTIC, rowId: "off", operation: "setEnabled", enabled: true });
 
 	const edited = draftYaml(service);
 	assert.match(edited, /name: '@deepseek-ai\/dsh-tool-fs'\n  disabled: true/);
 	assert.match(edited, /disabled: false # reason/);
 	await assert.rejects(
-		service.dispatch({ type: COMMAND.EDIT_SEMANTIC, rowId: "conditional", operation: "setEnabled", enabled: false }),
+		guarded(service, { type: COMMAND.EDIT_SEMANTIC, rowId: "conditional", operation: "setEnabled", enabled: false }),
 		(error) => error.code === "CONDITIONAL_ROW_STATE",
 	);
 	assert.match(draftYaml(service), /disabled: !!js process\.platform === 'win32'/);
@@ -135,7 +140,7 @@ test("known metadata exposes only declared fields and deterministic defaults", a
 	});
 	const service = createPresetDraftService({ ...memoryTarget(source), ...adapters });
 	await service.dispatch({ type: COMMAND.OPEN_TARGET, targetId: "target" });
-	await service.dispatch({ type: COMMAND.REFRESH_ANALYSIS });
+	await guarded(service, { type: COMMAND.REFRESH_ANALYSIS });
 
 	const row = service.getSnapshot().inspection.value.categories[1].rows[0];
 	assert.equal(row.inspection, "verified");
@@ -148,9 +153,9 @@ test("semantic summary surfaces uninspected and preset-local file changes withou
 	const source = `- id: mystery\n  name: third-party-plugin\n  config:\n    opaque: one\n`;
 	const service = createPresetDraftService({ ...memoryTarget(source), ...createSemanticAdapters() });
 	await service.dispatch({ type: COMMAND.OPEN_TARGET, targetId: "target" });
-	await service.dispatch({ type: COMMAND.PUT_FILE, path: "agent.cordis.yml", content: source.replace("opaque: one", "opaque: two") });
-	await service.dispatch({ type: COMMAND.PUT_FILE, path: "skills/local/SKILL.md", content: "instructions" });
-	await service.dispatch({ type: COMMAND.REFRESH_ANALYSIS });
+	await guarded(service, { type: COMMAND.PUT_FILE, path: "agent.cordis.yml", content: source.replace("opaque: one", "opaque: two") });
+	await guarded(service, { type: COMMAND.PUT_FILE, path: "skills/local/SKILL.md", content: "instructions" });
+	await guarded(service, { type: COMMAND.REFRESH_ANALYSIS });
 
 	assert.deepEqual(service.getSnapshot().semanticDiff.value.changes, [
 		{ category: "Plugins", kind: "row.changed", rowId: "mystery", inspection: "uninspected" },
@@ -162,8 +167,8 @@ test("cheap preflight, semantic summary, and raw diff report through adapter lif
 	const source = `- id: web\n  name: '@deepseek-ai/dsh-tool-web'\n  config:\n    fetch: true\n`;
 	const service = createPresetDraftService({ ...memoryTarget(source), ...createSemanticAdapters() });
 	await service.dispatch({ type: COMMAND.OPEN_TARGET, targetId: "target" });
-	await service.dispatch({ type: COMMAND.EDIT_SEMANTIC, rowId: "web", operation: "setField", path: "config.fetch", value: false });
-	await service.dispatch({ type: COMMAND.REFRESH_ANALYSIS });
+	await guarded(service, { type: COMMAND.EDIT_SEMANTIC, rowId: "web", operation: "setField", path: "config.fetch", value: false });
+	await guarded(service, { type: COMMAND.REFRESH_ANALYSIS });
 
 	const state = service.getSnapshot();
 	assert.deepEqual(state.preflight.value, { valid: true, diagnostics: [] });
@@ -179,8 +184,44 @@ test("cheap preflight, semantic summary, and raw diff report through adapter lif
 	assert.match(state.rawDiff.value, /-    fetch: true/);
 	assert.match(state.rawDiff.value, /\+    fetch: false/);
 
-	await service.dispatch({ type: COMMAND.PUT_FILE, path: "agent.cordis.yml", content: "not: [valid" });
-	await service.dispatch({ type: COMMAND.REFRESH_ANALYSIS });
+	await guarded(service, { type: COMMAND.PUT_FILE, path: "agent.cordis.yml", content: "not: [valid" });
+	await guarded(service, { type: COMMAND.REFRESH_ANALYSIS });
 	assert.equal(service.getSnapshot().preflight.value.valid, false);
 	assert.equal(service.getSnapshot().preflight.value.diagnostics[0].code, "YAML_PARSE_ERROR");
+});
+
+test("absent deterministic defaults are inspectable and become surgical explicit overrides", async () => {
+	const source = `# keep header\n- id: model\n  name: example-model # keep row comment\n  config:\n    other: untouched # keep field comment\n- id: next\n  name: example-model\n`;
+	const adapters = createSemanticAdapters({ plugins: { "example-model": {
+		category: "Model",
+		fields: { "config.temperature": { type: "number", default: 1 } },
+	} } });
+	const service = createPresetDraftService({ ...memoryTarget(source), ...adapters });
+	await service.dispatch({ type: COMMAND.OPEN_TARGET, targetId: "target" });
+	await guarded(service, { type: COMMAND.REFRESH_ANALYSIS });
+	const fields = service.getSnapshot().inspection.value.categories[1].rows.map((row) => row.fields[0]);
+	assert.deepEqual(fields.map(({ value, effectiveValue, configured, provenance }) => ({ value, effectiveValue, configured, provenance })), [
+		{ value: 1, effectiveValue: 1, configured: false, provenance: "default" },
+		{ value: 1, effectiveValue: 1, configured: false, provenance: "default" },
+	]);
+	await guarded(service, { type: COMMAND.EDIT_SEMANTIC, rowId: "model", operation: "setField", path: "config.temperature", value: 0.4 });
+	await guarded(service, { type: COMMAND.EDIT_SEMANTIC, rowId: "next", operation: "setField", path: "config.temperature", value: 0.6 });
+	assert.equal(draftYaml(service), `# keep header\n- id: model\n  name: example-model # keep row comment\n  config:\n    other: untouched # keep field comment\n    temperature: 0.4\n- id: next\n  name: example-model\n  config:\n    temperature: 0.6\n`);
+});
+
+test("ambiguous insertion is rejected and tool-prefix category does not imply verified metadata", async () => {
+	const source = `- id: tool\n  name: '@deepseek-ai/dsh-tool-future'\n- id: model\n  name: example-model\n  config: { other: 1 }\n`;
+	const adapters = createSemanticAdapters({ plugins: { "example-model": { category: "Model", fields: { "config.temperature": { type: "number", default: 1 } } } } });
+	const service = createPresetDraftService({ ...memoryTarget(source), ...adapters });
+	await service.dispatch({ type: COMMAND.OPEN_TARGET, targetId: "target" });
+	await guarded(service, { type: COMMAND.REFRESH_ANALYSIS });
+	const tool = service.getSnapshot().inspection.value.categories[4].rows[0];
+	assert.equal(tool.inspection, "uninspected");
+	assert.deepEqual(tool.defaults, {});
+	assert.deepEqual(tool.fields, []);
+	await assert.rejects(
+		guarded(service, { type: COMMAND.EDIT_SEMANTIC, rowId: "model", operation: "setField", path: "config.temperature", value: 0.5 }),
+		(error) => error.code === "AMBIGUOUS_SEMANTIC_EDIT",
+	);
+	assert.equal(draftYaml(service), source);
 });

@@ -1,10 +1,23 @@
 import { PRESET_DRAFT_COMMANDS as COMMAND } from "./domain.js";
+import { diagnosticOf } from "./diagnostic.js";
 
-function diagnosticOf(error) {
-	return Object.freeze({
-		message: error instanceof Error ? error.message : String(error),
-		...(error && typeof error === "object" && "code" in error ? { code: error.code } : {}),
-	});
+function guardOf(input) {
+	return {
+		targetId: input.targetId,
+		expectedRevision: input.expectedRevision,
+		expectedSourceFingerprint: input.expectedSourceFingerprint,
+		expectedDraftFingerprint: input.expectedDraftFingerprint,
+	};
+}
+
+function currentGuard(service) {
+	const state = service.getSnapshot();
+	return {
+		targetId: state.target?.id,
+		expectedRevision: state.revision,
+		expectedSourceFingerprint: state.source?.fingerprint,
+		expectedDraftFingerprint: state.draft?.fingerprint,
+	};
 }
 
 function categoryId(title) {
@@ -40,6 +53,9 @@ function projectInspection(slot, controls) {
 						id,
 						title: `${common.title} · ${field.path}`,
 						value: field.value,
+						effectiveValue: field.effectiveValue,
+						configured: field.configured,
+						provenance: field.provenance,
 						...(Object.hasOwn(row.defaults, field.path) ? { default: row.defaults[field.path] } : {}),
 						control: { type: field.type === "number" ? "number" : field.type === "boolean" ? "toggle" : "text", ...(field.type === "boolean" ? { operation: "field" } : {}) },
 						editable: true,
@@ -66,6 +82,9 @@ export function createPresetAuthoringController({ service, host, testHandoff } =
 		const state = service.getSnapshot();
 		controls = new Map();
 		return {
+			revision: state.revision,
+			sourceFingerprint: state.source?.fingerprint ?? null,
+			draftFingerprint: state.draft?.fingerprint ?? null,
 			sessionPresetId: typeof context.sessionPresetId === "string" ? context.sessionPresetId : state.sessionPresetId,
 			targets: (await host.listTargets()).map(publicTarget),
 			target: publicTarget(state.target),
@@ -87,34 +106,34 @@ export function createPresetAuthoringController({ service, host, testHandoff } =
 			case "panel.snapshot": break;
 			case "target.open":
 				await service.dispatch({ type: COMMAND.OPEN_TARGET, targetId: input.targetId });
-				await service.dispatch({ type: COMMAND.REFRESH_ANALYSIS });
+				await service.dispatch({ type: COMMAND.REFRESH_ANALYSIS, ...currentGuard(service) });
 				break;
 			case "target.copy":
 				await host.copyTarget(input.sourceId, input.targetId, input.name);
 				await service.dispatch({ type: COMMAND.OPEN_TARGET, targetId: input.targetId });
-				await service.dispatch({ type: COMMAND.REFRESH_ANALYSIS });
+				await service.dispatch({ type: COMMAND.REFRESH_ANALYSIS, ...currentGuard(service) });
 				break;
 			case "draft.edit": {
 				await panel();
 				const edit = controls.get(input.rowId);
 				if (!edit || edit.operation !== "setField") throw Object.assign(new Error("row has no editable field control"), { code: "UNSUPPORTED_SEMANTIC_EDIT" });
-				await service.dispatch({ type: COMMAND.EDIT_SEMANTIC, ...edit, value: input.value });
-				await service.dispatch({ type: COMMAND.REFRESH_ANALYSIS });
+				await service.dispatch({ type: COMMAND.EDIT_SEMANTIC, ...guardOf(input), ...edit, value: input.value });
+				await service.dispatch({ type: COMMAND.REFRESH_ANALYSIS, ...currentGuard(service) });
 				break;
 			}
 			case "draft.toggle": {
 				await panel();
 				const edit = controls.get(input.rowId);
 				if (!edit || edit.operation !== "setEnabled") throw Object.assign(new Error("row cannot be toggled safely"), { code: "CONDITIONAL_ROW_STATE" });
-				await service.dispatch({ type: COMMAND.EDIT_SEMANTIC, ...edit, enabled: input.enabled });
-				await service.dispatch({ type: COMMAND.REFRESH_ANALYSIS });
+				await service.dispatch({ type: COMMAND.EDIT_SEMANTIC, ...guardOf(input), ...edit, enabled: input.enabled });
+				await service.dispatch({ type: COMMAND.REFRESH_ANALYSIS, ...currentGuard(service) });
 				break;
 			}
-			case "draft.refreshAnalysis": await service.dispatch({ type: COMMAND.REFRESH_ANALYSIS }); break;
-			case "draft.validateMount": await service.dispatch({ type: COMMAND.VALIDATE_MOUNT }); break;
-			case "draft.apply": await service.dispatch({ type: COMMAND.APPLY }); break;
-			case "history.load": await service.dispatch({ type: COMMAND.LOAD_HISTORY }); break;
-			case "history.restore": await service.dispatch({ type: COMMAND.RESTORE_HISTORY, revision: input.revision }); break;
+			case "draft.refreshAnalysis": await service.dispatch({ type: COMMAND.REFRESH_ANALYSIS, ...guardOf(input) }); break;
+			case "draft.validateMount": await service.dispatch({ type: COMMAND.VALIDATE_MOUNT, ...guardOf(input) }); break;
+			case "draft.apply": await service.dispatch({ type: COMMAND.APPLY, ...guardOf(input) }); break;
+			case "history.load": await service.dispatch({ type: COMMAND.LOAD_HISTORY, ...guardOf(input) }); break;
+			case "history.restore": await service.dispatch({ type: COMMAND.RESTORE_HISTORY, ...guardOf(input), revision: input.historyRevision }); break;
 			case "test.start": {
 				const target = service.getSnapshot().target;
 				if (!target || target.id !== input.targetId) throw Object.assign(new Error("Test target must be the selected target"), { code: "TARGET_MISMATCH" });

@@ -6,21 +6,22 @@ Load this reference when the Preset panel has opened a candidate, Creator needs 
 
 The preset-authoring plugin's Host service owns the shared draft. The Preset panel and Creator must read and mutate that same service object; a second in-chat copy, temporary file, or reconstructed YAML document would create competing state.
 
-A draft identifies its target and carries two distinct kinds of revision:
+A draft identifies its target and carries three compare-and-set values:
 
-- the draft service's own evolving candidate state;
-- an opaque source revision for the saved target from which the draft began.
+- the draft service's revision for its evolving state;
+- the Source Fingerprint for the complete saved target from which the draft began;
+- the draft fingerprint for the current complete candidate tree.
 
-The source revision is a plugin-owned fingerprint of the complete preset tree, including `agent.cordis.yml`, `preset.yml`, preset-local skills, and assets. Treat it as an opaque compare-and-set token. Do not derive it from roster metadata, composition text alone, a browser path, mtimes, or Git `HEAD`.
+The Source Fingerprint covers `agent.cordis.yml`, `preset.yml`, preset-local skills, and assets. Treat it as an opaque compare-and-set token. Do not derive it from roster metadata, composition text alone, a browser path, mtimes, or Git `HEAD`. Reserve revision for service state and Git history.
 
-Send the exact source revision expected by the live service on mutations and Apply. If the service reports it stale, preserve the candidate and ask the user to review/rebase or reopen it; never silently overwrite the newer saved tree.
+Send the exact target id, service revision, Source Fingerprint, and draft fingerprint from the same live snapshot on every target-scoped command. If the service reports a conflict or stale Source Fingerprint, preserve the candidate and ask the user to review/rebase or reopen it; never silently overwrite the newer saved tree.
 
 ## Temporary Host bridge
 
 Cordis Inspect is read-only discovery. To operate the draft service:
 
 1. Call `cordis_inspect_list`, then query the returned Host `Service.listService` provider with `cordis_inspect_query` for the exact draft-service and `tools` contracts. Do not guess the service name or methods.
-2. Call `cordis_define` for a Host-only Package. Inject only the draft service and `tools`; register one narrowly scoped Tool for the operation currently needed, with target id and revision fields explicit in its schema.
+2. Call `cordis_define` for a Host-only Package. Inject only the draft service and `tools`; register one narrowly scoped Tool for the operation currently needed, with target id, service revision, Source Fingerprint, and draft fingerprint explicit in its schema.
 3. Call `cordis_run mode:"run"` with the exact ids returned by define. The Tool becomes available on a later model step.
 4. Invoke the temporary Tool. Let it delegate directly to the Host draft service so panel edits and Creator edits immediately observe one state.
 5. Call `cordis_stop` as soon as the operation is complete, then `cordis_undefine`. Stopping removes the model-facing registration; undefining also discards the temporary source and versions.

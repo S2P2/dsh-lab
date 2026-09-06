@@ -10,7 +10,7 @@ The Host plugin provides `ctx.presetAuthoringDrafts` (service key `presetAuthori
 - `getSnapshot()` — immutable current state.
 - `subscribe(listener)` — observe snapshots; returns an unsubscribe function.
 
-`PRESET_DRAFT_COMMANDS` contains commands for session selection, target opening, whole-tree file edits, narrow semantic edits, source-staleness checks, analysis, mount validation, apply, and history loading. Session preset identity is independent from the selected target. `EDIT_SEMANTIC` supports `setField` for existing plain scalar fields exposed by verified metadata and `setEnabled` for rows with absent or literal-boolean `disabled`; conditional `!!js` state is rejected without changing the draft.
+`PRESET_DRAFT_COMMANDS` contains commands for session selection, target opening, whole-tree file edits, narrow semantic edits, source-staleness checks, analysis, mount validation, apply, and history loading. Session preset identity is independent from the selected target. `EDIT_SEMANTIC` supports `setField` for plain scalar fields exposed by verified metadata, including surgical insertion of absent fields with deterministic defaults and `setEnabled` for rows with absent or literal-boolean `disabled`; conditional `!!js` state is rejected without changing the draft.
 
 Every snapshot always contains `inspection`, `semanticDiff`, `rawDiff`, `preflight`, `mount`, `apply`, and `history` lifecycle slots. Their adapters are optional and report `unavailable` until an integration supplies them. `readTarget(targetId)` is required to open a draft and returns:
 
@@ -46,9 +46,9 @@ createPresetDraftService({
 });
 ```
 
-The semantic parser accepts DSH's `!!js` scalars as inert source strings and never evaluates them. Supported edits replace only the addressed scalar range (or add a literal `disabled: true` to an existing row), preserving the rest of the original text and comments.
+The semantic parser accepts DSH's `!!js` scalars as inert source strings and never evaluates them. Supported edits replace only the addressed scalar range, surgically insert a missing supported scalar override into an unambiguous block mapping, or add a literal `disabled: true` to an existing row, preserving the rest of the original text and comments. Absent deterministic defaults are inspected with `configured: false`, their effective value, and default provenance.
 
-Mount and Apply re-read the saved target and reject with `STALE_PRESET_DRAFT` if any file in the saved complete tree changed since the draft opened. Apply repeats that CAS check while holding the editable-root Git lock, materializes the complete candidate, invokes `standingKeyFor(targetId)`, and commits only the selected target. Mount failure restores the target to pre-Apply `HEAD`, keeps the failed candidate in the shared draft, and preserves DSH's diagnostic. Success advances source and draft to the saved revision. History restore replaces the selected target's whole directory and reopens the shared draft. Git degradation is reported separately and never prevents roster or draft use.
+Mount and Apply re-read the saved target and reject with `STALE_PRESET_DRAFT` if any file in the saved complete tree changed since the draft opened. Apply repeats that CAS check while holding the editable-root Git lock, materializes the complete candidate, invokes `standingKeyFor(targetId)`, and commits only the selected target. Mount and Apply recovery first restore the Git pre-validation rollback point and verify it against the captured Source Fingerprint, then fall back to the captured source tree. Diagnostics distinguish `recovered-via-fallback` from fatal `unrecovered`; validation never commits the candidate and always keeps it in the shared draft. Success advances source and draft to the saved revision. History restore replaces the selected target's whole directory and reopens the shared draft. Git degradation is reported separately and never prevents roster or draft use.
 
 ## Local Git adapter
 
@@ -72,7 +72,7 @@ The Preset tab sends same-origin `POST /dsh-preset-authoring/api` requests with 
 { sessionId, cwd, command }
 ```
 
-The route returns `{ ok: true, value: panelSnapshot }` or `{ ok: false, error: { code?, message } }`. The exact Host route accepts only bounded same-origin POST requests, returns stable JSON diagnostics, and is disposed with its Cordis effect. The browser keeps no second Preset Draft and refreshes this authoritative panel snapshot while the tab is visible. The command vocabulary expected by the browser is:
+The route returns `{ ok: true, value: panelSnapshot }` or `{ ok: false, error: { code?, message, recovery?, fallbackRecovery?, recoveryState? } }`. The exact Host route accepts only bounded same-origin POST requests; originless mutations are accepted solely from a loopback non-browser client, returns stable JSON diagnostics, and is disposed with its Cordis effect. The browser keeps no second Preset Draft and refreshes this authoritative panel snapshot while the tab is visible. The command vocabulary expected by the browser is:
 
 | Command | Purpose |
 |---|---|
@@ -85,7 +85,7 @@ The route returns `{ ok: true, value: panelSnapshot }` or `{ ok: false, error: {
 | `draft.validateMount` | Run authoritative mount validation |
 | `draft.apply` | Explicitly apply the shared draft |
 | `history.load` | Load local history |
-| `history.restore` `{ revision }` | Manually restore a retained revision |
+| `history.restore` `{ historyRevision }` | Manually restore a retained revision |
 | `test.start` `{ targetId }` | Invoke a configured fresh-session handoff; otherwise return an explicit `launched: false` handoff payload without changing the current session |
 
-`panelSnapshot` keeps roster/domain state Host-owned. Its browser-facing projection is `{ sessionPresetId, targets, target, stale, inspection: { categories }, semanticDiff, rawDiff, preflight, mount, apply, history, test }`. Categories contain rows with display metadata and, only where deterministic support exists, a `control` (`toggle`, `text`, `number`, or `select`). Unknown rows omit `control` and carry an explicit `metadata: "uninspected"` (or equivalent Host wording). Lifecycle slots use the domain's `{ status, value, diagnostic }` shape.
+Every target-scoped command also requires `{ targetId, expectedRevision, expectedSourceFingerprint, expectedDraftFingerprint }` copied from one panel snapshot; mismatches reject with `PRESET_DRAFT_CONFLICT` before an adapter or filesystem side effect. `panelSnapshot` keeps roster/domain state Host-owned. Its browser-facing projection is `{ revision, sourceFingerprint, draftFingerprint, sessionPresetId, targets, target, stale, inspection: { categories }, semanticDiff, rawDiff, preflight, mount, apply, history, test }`. Categories contain rows with display metadata and, only where deterministic support exists, a `control` (`toggle`, `text`, `number`, or `select`). Unknown rows omit `control` and carry an explicit `metadata: "uninspected"` (or equivalent Host wording). Lifecycle slots use the domain's `{ status, value, diagnostic }` shape.

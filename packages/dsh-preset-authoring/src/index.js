@@ -51,8 +51,9 @@ export function apply(ctx, config = {}) {
 	if (typeof ctx.inject === "function") {
 		ctx.inject(["webServer"], (host) => {
 			const resolveSessionPreset = config.resolveSessionPreset ?? (async ({ sessionId }) => {
-				if (typeof sessionId !== "string" || typeof ctx.sessionController?.inspect !== "function") return undefined;
-				return (await ctx.sessionController.inspect(sessionId)).meta?.agentPreset;
+				const sessionController = typeof ctx.get === "function" ? ctx.get("sessionController") : undefined;
+				if (typeof sessionId !== "string" || typeof sessionController?.inspect !== "function") return undefined;
+				return (await sessionController.inspect(sessionId)).meta?.agentPreset;
 			});
 			host.effect(() => host.webServer.register({
 				kind: "exact",

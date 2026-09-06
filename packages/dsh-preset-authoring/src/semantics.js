@@ -40,8 +40,8 @@ const BUILTIN_PLUGINS = Object.freeze({
 		category: "Tools",
 		label: "Web tools",
 		fields: {
-			"config.fetch": { type: "boolean" },
-			"config.searchTimeoutMs": { type: "number" },
+			"config.fetch": { type: "boolean", default: true },
+			"config.searchTimeoutMs": { type: "number", default: 30000 },
 		},
 	},
 	"@deepseek-ai/dsh-tool-fs-search": {
@@ -58,33 +58,16 @@ const BUILTIN_PLUGINS = Object.freeze({
 		category: "Other",
 		label: "Tool result pruner",
 		fields: {
-			"config.thresholdChars": { type: "number" },
-			"config.headChars": { type: "number" },
-			"config.tailChars": { type: "number" },
+			"config.thresholdChars": { type: "number", default: 8192 },
+			"config.headChars": { type: "number", default: 4096 },
+			"config.tailChars": { type: "number", default: 1024 },
 		},
 	},
 });
 
-const KNOWN_TOOL_PLUGINS = new Set([
-	"@deepseek-ai/dsh-tool-ask-user",
-	"@deepseek-ai/dsh-tool-bash",
-	"@deepseek-ai/dsh-tool-cordis",
-	"@deepseek-ai/dsh-tool-fs",
-	"@deepseek-ai/dsh-tool-goal",
-	"@deepseek-ai/dsh-tool-jobs",
-	"@deepseek-ai/dsh-tool-pwsh",
-	"@deepseek-ai/dsh-tool-ralph",
-	"@deepseek-ai/dsh-tool-skill",
-	"@deepseek-ai/dsh-tool-subagent",
-	"@deepseek-ai/dsh-tool-subagent-control",
-	"@deepseek-ai/dsh-tool-subagent-control/list-agents",
-	"@deepseek-ai/dsh-tool-workflow",
-]);
-
 function metadataFor(name, plugins) {
 	if (plugins && Object.hasOwn(plugins, name)) return plugins[name];
 	if (Object.hasOwn(BUILTIN_PLUGINS, name)) return BUILTIN_PLUGINS[name];
-	if (KNOWN_TOOL_PLUGINS.has(name)) return { category: "Tools", label: name, fields: {} };
 	if (name === "@deepseek-ai/dsh-mcp-client") return { category: "MCP", label: "MCP client", fields: {} };
 	return null;
 }
@@ -140,6 +123,7 @@ function stateOf(row) {
 
 function categoryFor(name, metadata) {
 	if (metadata?.category && SEMANTIC_CATEGORIES.includes(metadata.category)) return metadata.category;
+	if (name.startsWith("@deepseek-ai/dsh-tool-")) return "Tools";
 	if (name === "cordis:group") return "Other";
 	return "Plugins";
 }
@@ -159,7 +143,11 @@ function inspectText(source, options = {}) {
 		const defaults = {};
 		for (const [path, field] of Object.entries(metadata?.fields ?? {})) {
 			const valueNode = nodeAtPath(node, path);
-			if (isScalar(valueNode) && valueNode.tag !== JS_TAG) fields.push({ path, type: field.type, value: valueNode.value });
+			if (isScalar(valueNode) && valueNode.tag !== JS_TAG) {
+				fields.push({ path, type: field.type, value: valueNode.value, effectiveValue: valueNode.value, provenance: "explicit", configured: true });
+			} else if (Object.hasOwn(field, "default") && valueNode === null) {
+				fields.push({ path, type: field.type, value: field.default, effectiveValue: field.default, provenance: "default", configured: false });
+			}
 			if (Object.hasOwn(field, "default")) defaults[path] = field.default;
 		}
 		const row = {
@@ -264,6 +252,35 @@ function replaceRange(source, range, replacement) {
 	return source.slice(0, range[0]) + replacement + source.slice(range[1]);
 }
 
+function keyIndent(source, map) {
+	const key = map.items[0]?.key;
+	if (!key?.range) throw editError("AMBIGUOUS_SEMANTIC_EDIT", "cannot insert into an empty mapping safely");
+	const lineStart = source.lastIndexOf("\n", key.range[0] - 1) + 1;
+	return source.slice(lineStart, key.range[0]).replace(/[^\t]/g, " ");
+}
+
+function insertScalar(source, row, path, value) {
+	const segments = path.split(".");
+	let map = row;
+	for (let index = 0; index < segments.length; index++) {
+		if (!isMap(map) || map.flow) throw editError("AMBIGUOUS_SEMANTIC_EDIT", `field ${JSON.stringify(path)} crosses a non-block mapping`);
+		const matches = map.items.filter((pair) => isScalar(pair.key) && pair.key.value === segments[index]);
+		if (matches.length > 1) throw editError("AMBIGUOUS_SEMANTIC_EDIT", `field ${JSON.stringify(path)} crosses a duplicate key`);
+		if (matches.length === 1) {
+			map = matches[0].value;
+			continue;
+		}
+		const indent = keyIndent(source, map);
+		const lines = [];
+		for (let rest = index; rest < segments.length - 1; rest++) {
+			lines.push(`${indent}${"  ".repeat(rest - index)}${segments[rest]}:`);
+		}
+		lines.push(`${indent}${"  ".repeat(segments.length - index - 1)}${segments.at(-1)}: ${replacementFor(source, row, value)}`);
+		return source.slice(0, map.range[1]) + `${lines.join("\n")}\n` + source.slice(map.range[1]);
+	}
+	throw editError("AMBIGUOUS_SEMANTIC_EDIT", `field ${JSON.stringify(path)} is not missing`);
+}
+
 function editText(source, edit, options) {
 	const inspected = inspectText(source, options);
 	if (inspected.document.errors.length || !isSeq(inspected.document.contents)) {
@@ -279,12 +296,13 @@ function editText(source, edit, options) {
 			throw editError("UNSUPPORTED_SEMANTIC_EDIT", `field ${JSON.stringify(edit.path)} is not exposed by verified metadata for ${name ?? edit.rowId}`);
 		}
 		const node = nodeAtPath(row, edit.path);
-		if (!isScalar(node) || node.tag === JS_TAG) {
-			throw editError("UNSUPPORTED_SEMANTIC_EDIT", `field ${JSON.stringify(edit.path)} is not an existing plain scalar`);
-		}
 		const expectedType = metadata.fields[edit.path].type;
 		if (edit.value !== null && expectedType && typeof edit.value !== expectedType) {
 			throw editError("UNSUPPORTED_SEMANTIC_EDIT", `field ${JSON.stringify(edit.path)} requires a ${expectedType} value`);
+		}
+		if (node === null) return insertScalar(source, row, edit.path, edit.value);
+		if (!isScalar(node) || node.tag === JS_TAG) {
+			throw editError("AMBIGUOUS_SEMANTIC_EDIT", `field ${JSON.stringify(edit.path)} is not a plain scalar`);
 		}
 		return replaceRange(source, node.range, replacementFor(source, node, edit.value));
 	}
