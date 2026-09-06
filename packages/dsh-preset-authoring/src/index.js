@@ -50,10 +50,14 @@ export function apply(ctx, config = {}) {
 	const dispose = ctx.provide(serviceName, flow.service);
 	if (typeof ctx.inject === "function") {
 		ctx.inject(["webServer"], (host) => {
+			const resolveSessionPreset = config.resolveSessionPreset ?? (async ({ sessionId }) => {
+				if (typeof sessionId !== "string" || typeof ctx.sessionController?.inspect !== "function") return undefined;
+				return (await ctx.sessionController.inspect(sessionId)).meta?.agentPreset;
+			});
 			host.effect(() => host.webServer.register({
 				kind: "exact",
 				path: PRESET_AUTHORING_API_PATH,
-				handler: createPresetAuthoringRoute(flow.controller, { resolveSessionPreset: config.resolveSessionPreset }),
+				handler: createPresetAuthoringRoute(flow.controller, { resolveSessionPreset }),
 			}), "dsh-preset-authoring: panel API route");
 		});
 	}

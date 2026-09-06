@@ -54,7 +54,8 @@ Mount and Apply re-read the saved target and reject with `STALE_PRESET_DRAFT` if
 
 `createLocalGitAdapter({ root })` owns local history for one editable preset root. Its interface is:
 
-- `ensureBaseline()` — initialize `.git` when absent and ensure `HEAD` exists.
+- `ensureBaseline()` — initialize `.git` when absent and ensure `HEAD` exists for explicit whole-root callers.
+- `ensureTargetBaseline(target)` — initialize history and record only an as-yet-untracked selected target, leaving unrelated state untouched; Apply uses this seam.
 - `recordHead()` — return the committed pre-Apply rollback point.
 - `commitTarget(target, message)` — stage and commit only one target-directory pathspec.
 - `listHistory(target, { limit })` — return commits relevant to that target.
@@ -85,6 +86,6 @@ The route returns `{ ok: true, value: panelSnapshot }` or `{ ok: false, error: {
 | `draft.apply` | Explicitly apply the shared draft |
 | `history.load` | Load local history |
 | `history.restore` `{ revision }` | Manually restore a retained revision |
-| `test.start` `{ targetId }` | Hand the saved Target Preset to a separate fresh-session flow |
+| `test.start` `{ targetId }` | Invoke a configured fresh-session handoff; otherwise return an explicit `launched: false` handoff payload without changing the current session |
 
 `panelSnapshot` keeps roster/domain state Host-owned. Its browser-facing projection is `{ sessionPresetId, targets, target, stale, inspection: { categories }, semanticDiff, rawDiff, preflight, mount, apply, history, test }`. Categories contain rows with display metadata and, only where deterministic support exists, a `control` (`toggle`, `text`, `number`, or `select`). Unknown rows omit `control` and carry an explicit `metadata: "uninspected"` (or equivalent Host wording). Lifecycle slots use the domain's `{ status, value, diagnostic }` shape.

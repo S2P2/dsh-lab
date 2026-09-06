@@ -62,18 +62,11 @@ export function createPresetAuthoringController({ service, host, testHandoff } =
 	let test = Object.freeze({ status: "idle", value: null, diagnostic: null });
 	let controls = new Map();
 
-	async function syncSession(context) {
-		if (typeof context?.sessionPresetId === "string" && context.sessionPresetId.length > 0
-			&& service.getSnapshot().sessionPresetId !== context.sessionPresetId) {
-			await service.dispatch({ type: COMMAND.SET_SESSION, presetId: context.sessionPresetId });
-		}
-	}
-
-	async function panel() {
+	async function panel(context = {}) {
 		const state = service.getSnapshot();
 		controls = new Map();
 		return {
-			sessionPresetId: state.sessionPresetId,
+			sessionPresetId: typeof context.sessionPresetId === "string" ? context.sessionPresetId : state.sessionPresetId,
 			targets: (await host.listTargets()).map(publicTarget),
 			target: publicTarget(state.target),
 			stale: state.stale,
@@ -90,7 +83,6 @@ export function createPresetAuthoringController({ service, host, testHandoff } =
 
 	async function command(input, context = {}) {
 		if (!input || typeof input.type !== "string") throw Object.assign(new TypeError("command.type is required"), { code: "INVALID_COMMAND" });
-		await syncSession(context);
 		switch (input.type) {
 			case "panel.snapshot": break;
 			case "target.open":
@@ -127,7 +119,7 @@ export function createPresetAuthoringController({ service, host, testHandoff } =
 				const target = service.getSnapshot().target;
 				if (!target || target.id !== input.targetId) throw Object.assign(new Error("Test target must be the selected target"), { code: "TARGET_MISMATCH" });
 				try {
-					const value = testHandoff ? await testHandoff({ presetId: target.id, context }) : { kind: "fresh-session-handoff", presetId: target.id, currentSessionUnchanged: true };
+					const value = testHandoff ? await testHandoff({ presetId: target.id, context }) : { kind: "fresh-session-required", presetId: target.id, launched: false, currentSessionUnchanged: true, message: "Create a new DSH session with this preset" };
 					test = Object.freeze({ status: "ready", value, diagnostic: null });
 				} catch (error) {
 					test = Object.freeze({ status: "failed", value: null, diagnostic: diagnosticOf(error) });
@@ -137,7 +129,7 @@ export function createPresetAuthoringController({ service, host, testHandoff } =
 			}
 			default: throw Object.assign(new Error(`unknown panel command: ${input.type}`), { code: "UNKNOWN_COMMAND" });
 		}
-		return panel();
+		return panel(context);
 	}
 	return Object.freeze({ command, getPanelSnapshot: panel });
 }

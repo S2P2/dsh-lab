@@ -28,9 +28,8 @@ async function fixture(t) {
 	return { root, flow, fail(error) { failure = error; } };
 }
 
-test("successful Apply commits only selected target and advances the shared draft", async (t) => {
+test("first successful Apply baselines and commits only the selected target", async (t) => {
 	const { root, flow } = await fixture(t);
-	await flow.git.ensureBaseline();
 	await flow.service.dispatch({ type: COMMAND.PUT_FILE, path: "skills/new.md", content: "new" });
 	await writeFile(join(root, "unrelated.txt"), "dirty");
 	await flow.service.dispatch({ type: COMMAND.APPLY });
@@ -43,7 +42,8 @@ test("successful Apply commits only selected target and advances the shared draf
 	assert.match(committed, /target\/skills\/new.md/);
 	assert.doesNotMatch(committed, /unrelated.txt/);
 	const { stdout: dirty } = await exec("git", ["status", "--short", "--", "unrelated.txt"], { cwd: root });
-	assert.match(dirty, / M unrelated.txt/);
+	assert.match(dirty, /\?\? unrelated.txt/);
+	assert.equal(await readFile(join(root, "unrelated.txt"), "utf8"), "dirty");
 });
 
 test("failed authoritative mount restores committed whole target and retains exact failed candidate", async (t) => {
@@ -57,6 +57,31 @@ test("failed authoritative mount restores committed whole target and retains exa
 	assert.equal(await readFile(join(root, "target", "skills", "old.md"), "utf8"), "old");
 	assert.equal(flow.service.getSnapshot().apply.diagnostic.message, "exact DSH mount diagnostic");
 	assert.match(JSON.stringify(flow.service.getSnapshot().draft.tree), /YnJva2Vu|broken/);
+});
+
+test("failed Git recovery falls back to the captured whole source tree", async (t) => {
+	const root = await mkdtemp(join(tmpdir(), "dsh-preset-fallback-"));
+	t.after(() => rm(root, { recursive: true, force: true }));
+	const composition = join(root, "target", "agent.cordis.yml");
+	await put(composition, "saved");
+	const failure = new Error("exact mount failure");
+	const preset = { id: "target", trust: "user", path: composition };
+	const locked = {
+		async ensureTargetBaseline() { return { status: "ready", revision: "head" }; },
+		async recordHead() { return { status: "ready", revision: "head" }; },
+		async restoreTarget() { return { status: "degraded", operation: "restoreTarget", diagnostic: { message: "git restore failed" } }; },
+	};
+	const git = { root, withRootLock: (operation) => operation(locked) };
+	const flow = createHostPresetAuthoring({
+		roots: [{ path: root, trust: "user" }],
+		async list() { return [preset]; },
+		async resolve() { return preset; },
+		async standingKeyFor() { throw failure; },
+	}, { git });
+	await flow.service.dispatch({ type: COMMAND.OPEN_TARGET, targetId: "target" });
+	await flow.service.dispatch({ type: COMMAND.PUT_FILE, path: "agent.cordis.yml", content: "broken" });
+	await assert.rejects(flow.service.dispatch({ type: COMMAND.APPLY }), (error) => error === failure && error.recovery.status === "degraded");
+	assert.equal(await readFile(composition, "utf8"), "saved");
 });
 
 test("manual history restore replaces the whole target directory and reopens the shared draft", async (t) => {

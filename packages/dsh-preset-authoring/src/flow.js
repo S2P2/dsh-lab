@@ -22,7 +22,8 @@ export function createHostPresetAuthoring(agentPresets, options = {}) {
 		...semantics,
 		async apply(input) {
 			return git.withRootLock(async (locked) => {
-				const baseline = await locked.ensureBaseline();
+				const pathspec = await host.gitTarget(input.target.id);
+				const baseline = await locked.ensureTargetBaseline(pathspec);
 				if (baseline.status === "degraded") throw gitError(baseline);
 				const head = await locked.recordHead();
 				if (head.status === "degraded") throw gitError(head);
@@ -31,7 +32,6 @@ export function createHostPresetAuthoring(agentPresets, options = {}) {
 				if (currentFingerprint !== input.source.fingerprint) {
 					throw Object.assign(new Error("preset draft is stale"), { code: "STALE_PRESET_DRAFT" });
 				}
-				const pathspec = await host.gitTarget(input.target.id);
 				await host.materializeTarget(input.target.id, input.draft.tree);
 				try {
 					const validation = await host.validateMaterializedTarget(input.target.id);
@@ -40,8 +40,21 @@ export function createHostPresetAuthoring(agentPresets, options = {}) {
 					return { saved: true, revision: committed.revision, standingKey: validation.standingKey };
 				} catch (error) {
 					const restored = await locked.restoreTarget(pathspec, head.revision, `Recover failed Apply for ${input.target.id}`);
-					if (restored.status === "degraded" && error && (typeof error === "object" || typeof error === "function")) {
-						Object.defineProperty(error, "recovery", { value: restored, enumerable: true });
+					if (restored.status === "degraded") {
+						try {
+							await host.restoreTarget(input.target.id, input.source.tree);
+						} catch (fallbackError) {
+							if (error && (typeof error === "object" || typeof error === "function")) {
+								Object.defineProperties(error, {
+									recovery: { value: restored, enumerable: true },
+									fallbackRecovery: { value: fallbackError, enumerable: true },
+								});
+							}
+							throw error;
+						}
+						if (error && (typeof error === "object" || typeof error === "function")) {
+							Object.defineProperty(error, "recovery", { value: restored, enumerable: true });
+						}
 					}
 					throw error;
 				}

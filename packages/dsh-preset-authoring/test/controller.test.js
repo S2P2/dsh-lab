@@ -49,10 +49,23 @@ test("copy-first opens the native editable copy without changing session preset"
 	assert.equal(panel.sessionPresetId, "creator");
 });
 
+test("request session presets project independently without mutating shared target state", async () => {
+	const { service, controller } = harness();
+	await controller.command({ type: "target.open", targetId: "editable" }, { sessionPresetId: "creator-a" });
+	const [a, b] = await Promise.all([
+		controller.command({ type: "panel.snapshot" }, { sessionPresetId: "creator-a" }),
+		controller.command({ type: "panel.snapshot" }, { sessionPresetId: "creator-b" }),
+	]);
+	assert.equal(a.sessionPresetId, "creator-a");
+	assert.equal(b.sessionPresetId, "creator-b");
+	assert.equal(service.getSnapshot().sessionPresetId, null);
+	assert.equal(service.getSnapshot().target.id, "editable");
+});
+
 test("fresh-session Test returns an explicit handoff without recomposing current session", async () => {
 	const { controller } = harness();
 	await controller.command({ type: "target.open", targetId: "editable" }, { sessionPresetId: "creator" });
 	const panel = await controller.command({ type: "test.start", targetId: "editable" }, { sessionPresetId: "creator" });
-	assert.deepEqual(panel.test.value, { kind: "fresh-session-handoff", presetId: "editable", currentSessionUnchanged: true });
+	assert.deepEqual(panel.test.value, { kind: "fresh-session-required", presetId: "editable", launched: false, currentSessionUnchanged: true, message: "Create a new DSH session with this preset" });
 	assert.equal(panel.sessionPresetId, "creator");
 });

@@ -68,7 +68,8 @@ function schedule(root, operation) {
  * Results use `status: "degraded"` for Git/filesystem failures so callers can
  * keep preset loading and drafting available. Invalid target pathspecs remain
  * programmer errors and reject. `withRootLock` lets Apply hold the same root
- * lock across recording HEAD, writing its candidate, validation, and commit.
+ * lock across target-only baseline capture, recording HEAD, candidate write,
+ * validation, and commit.
  */
 export function createLocalGitAdapter(options) {
 	if (!options || typeof options.root !== "string" || options.root.length === 0) {
@@ -132,6 +133,37 @@ export function createLocalGitAdapter(options) {
 			}
 		} catch (error) {
 			return degraded(operation, error, gitBinary, error.gitArgs ?? lastArgs);
+		}
+	}
+
+	async function ensureTargetBaseline(target) {
+		const { pathspec } = safeTarget(root, target);
+		let args = [];
+		try {
+			if (!(await hasGitDirectory())) {
+				args = ["init", "--quiet"];
+				await command(args);
+			}
+			try {
+				args = ["rev-parse", "--verify", "HEAD"];
+				await command(args);
+			} catch {
+				args = [
+					"-c", `user.name=${author.name}`,
+					"-c", `user.email=${author.email}`,
+					"commit", "--quiet", "--no-gpg-sign", "--allow-empty", "-m", "Initialize editable presets",
+				];
+				await command(args);
+			}
+			args = ["ls-tree", "-r", "--name-only", "HEAD", "--", pathspec];
+			if ((await command(args)).trim() === "") {
+				const recorded = await commitTarget(pathspec, `Record baseline for ${pathspec}`);
+				if (recorded.status === "degraded") return recorded;
+			}
+			args = ["rev-parse", "HEAD"];
+			return Object.freeze({ status: "ready", revision: (await command(args)).trim() });
+		} catch (error) {
+			return degraded("ensureTargetBaseline", error, gitBinary, error.gitArgs ?? args);
 		}
 	}
 
@@ -208,7 +240,7 @@ export function createLocalGitAdapter(options) {
 		}
 	}
 
-	const unlocked = Object.freeze({ ensureBaseline, recordHead, commitTarget, listHistory, restoreTarget });
+	const unlocked = Object.freeze({ ensureBaseline, ensureTargetBaseline, recordHead, commitTarget, listHistory, restoreTarget });
 	return Object.freeze({
 		root,
 		withRootLock(operation) {
@@ -216,6 +248,7 @@ export function createLocalGitAdapter(options) {
 			return schedule(root, () => operation(unlocked));
 		},
 		ensureBaseline: () => schedule(root, ensureBaseline),
+		ensureTargetBaseline: (target) => schedule(root, () => ensureTargetBaseline(target)),
 		recordHead: () => schedule(root, recordHead),
 		commitTarget: (target, message) => schedule(root, () => commitTarget(target, message)),
 		listHistory: (target, options) => schedule(root, () => listHistory(target, options)),
