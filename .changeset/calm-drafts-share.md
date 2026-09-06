@@ -2,4 +2,4 @@
 "@s2p2/dsh-preset-authoring": minor
 ---
 
-Add the Host-owned shared preset draft domain, DSH-native roster, copy, directory materialization and mount-validation adapters, a local-only target-scoped Git history and recovery adapter, and semantic composition inspection, editing, cheap preflight, and diff adapters.
+Add the complete Host-owned preset authoring flow: shared drafts, DSH-native roster/copy/mount validation, honest browser projection and guarded panel API, semantic editing and diffs, target-scoped local Git Apply recovery/history restore, and fresh-session handoff.

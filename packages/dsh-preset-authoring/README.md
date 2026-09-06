@@ -1,6 +1,6 @@
 # @s2p2/dsh-preset-authoring
 
-Host-owned shared preset drafts, semantic composition adapters, DSH-native Host adapters, a local-only Git adapter, and a Better Sidebar authoring panel for DSH preset authoring. The browser half is a hand-authored lazy-CJS bundle and consumes Better Sidebar 0.18 only through the external `ctx.get('betterSidebar')` / `registerTab` service contract. `dsh-better-sidebar` is an optional peer: when it is absent the Host service still loads, the browser logs a clear missing-panel status, and registration is reconciled if the service becomes available later. The package delegates authoritative roster, copy, directory materialization, and mount validation operations to DSH's `agentPresets` Host service; final Apply orchestration remains a later integration.
+Host-owned shared preset drafts, semantic composition adapters, DSH-native Host adapters, a local-only Git adapter, and a Better Sidebar authoring panel for DSH preset authoring. The browser half is a hand-authored lazy-CJS bundle and consumes Better Sidebar 0.18 only through the external `ctx.get('betterSidebar')` / `registerTab` service contract. `dsh-better-sidebar` is an optional peer: when it is absent the Host service still loads, the browser logs a clear missing-panel status, and registration is reconciled if the service becomes available later. The package delegates authoritative roster, copy, directory materialization, and mount validation operations to DSH's `agentPresets` Host service. Its default activation composes those Host adapters with semantic adapters, local Git recovery, one shared draft service, the guarded panel route, and the Better Sidebar client.
 
 ## Public API
 
@@ -48,7 +48,7 @@ createPresetDraftService({
 
 The semantic parser accepts DSH's `!!js` scalars as inert source strings and never evaluates them. Supported edits replace only the addressed scalar range (or add a literal `disabled: true` to an existing row), preserving the rest of the original text and comments.
 
-Mount and apply re-read the saved target and reject with `STALE_PRESET_DRAFT` before calling their adapter if any file in the saved complete tree changed since the draft opened.
+Mount and Apply re-read the saved target and reject with `STALE_PRESET_DRAFT` if any file in the saved complete tree changed since the draft opened. Apply repeats that CAS check while holding the editable-root Git lock, materializes the complete candidate, invokes `standingKeyFor(targetId)`, and commits only the selected target. Mount failure restores the target to pre-Apply `HEAD`, keeps the failed candidate in the shared draft, and preserves DSH's diagnostic. Success advances source and draft to the saved revision. History restore replaces the selected target's whole directory and reopens the shared draft. Git degradation is reported separately and never prevents roster or draft use.
 
 ## Local Git adapter
 
@@ -71,7 +71,7 @@ The Preset tab sends same-origin `POST /dsh-preset-authoring/api` requests with 
 { sessionId, cwd, command }
 ```
 
-The route returns `{ ok: true, value: panelSnapshot }` or `{ ok: false, error: { code?, message } }`. The Host route is intentionally a later implementation slice; the browser keeps no second Preset Draft and refreshes this authoritative panel snapshot while the tab is visible. The command vocabulary expected by the browser is:
+The route returns `{ ok: true, value: panelSnapshot }` or `{ ok: false, error: { code?, message } }`. The exact Host route accepts only bounded same-origin POST requests, returns stable JSON diagnostics, and is disposed with its Cordis effect. The browser keeps no second Preset Draft and refreshes this authoritative panel snapshot while the tab is visible. The command vocabulary expected by the browser is:
 
 | Command | Purpose |
 |---|---|

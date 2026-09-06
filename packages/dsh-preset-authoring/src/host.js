@@ -96,7 +96,7 @@ function publicTarget(preset, editable, files) {
 		...(preset.name === undefined ? {} : { name: preset.name }),
 		...(preset.description === undefined ? {} : { description: preset.description }),
 		...(preset.broken === undefined ? {} : { broken: preset.broken }),
-		...(files === undefined ? {} : { files }),
+		...(files === undefined ? {} : { files: files.map((file) => ({ path: file.path, content: decodePresetFile(file) })) }),
 	};
 }
 
@@ -159,6 +159,17 @@ export function createHostAdapters(agentPresets) {
 		async restoreTarget(id, tree) {
 			const target = await editableTarget(id);
 			await restorePresetDirectory(dirname(target.path), tree);
+		},
+		editableRoot() {
+			return firstUserRoot();
+		},
+		async gitTarget(id) {
+			const target = await editableTarget(id);
+			return relative(firstUserRoot(), dirname(target.path)).split("\\").join("/");
+		},
+		async validateMaterializedTarget(id) {
+			await editableTarget(id);
+			return { standingKey: await agentPresets.standingKeyFor(id) };
 		},
 		async mount(input) {
 			const id = input?.target?.id;

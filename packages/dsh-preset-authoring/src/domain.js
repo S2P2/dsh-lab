@@ -16,6 +16,7 @@ export const PRESET_DRAFT_COMMANDS = Object.freeze({
 	VALIDATE_MOUNT: "draft.validateMount",
 	APPLY: "draft.apply",
 	LOAD_HISTORY: "history.load",
+	RESTORE_HISTORY: "history.restore",
 });
 
 const CHANNELS = ["inspection", "semanticDiff", "rawDiff", "preflight", "mount", "apply", "history"];
@@ -236,16 +237,52 @@ export function createPresetDraftService(adapters = {}) {
 					throw error;
 				}
 				return runAdapter("mount");
-			case PRESET_DRAFT_COMMANDS.APPLY:
+			case PRESET_DRAFT_COMMANDS.APPLY: {
 				requireEditableDraft();
 				if (await checkSource()) {
 					const error = Object.assign(new Error("preset draft is stale"), { code: "STALE_PRESET_DRAFT" });
 					publish({ apply: slot("blocked", null, diagnosticOf(error)) });
 					throw error;
 				}
-				return runAdapter("apply");
+				const candidateTree = state.draftTree;
+				const candidateFingerprint = state.draftFingerprint;
+				await runAdapter("apply");
+				if (state.apply.value?.saved !== true) return snapshot();
+				const saved = await readTarget(state.target.id);
+				if (saved.fingerprint !== candidateFingerprint) throw new Error("applied target does not match the candidate");
+				return publish({
+					target: saved.target,
+					sourceTree: candidateTree,
+					sourceFingerprint: candidateFingerprint,
+					draftTree: candidateTree,
+					draftFingerprint: candidateFingerprint,
+					stale: false,
+				});
+			}
 			case PRESET_DRAFT_COMMANDS.LOAD_HISTORY:
 				return runAdapter("history");
+			case PRESET_DRAFT_COMMANDS.RESTORE_HISTORY: {
+				requireEditableDraft();
+				if (typeof adapters.restoreHistory !== "function") throw Object.assign(new Error("history restore adapter is not configured"), { code: "HISTORY_RESTORE_UNAVAILABLE" });
+				publish({ history: slot("running") });
+				try {
+					const value = await adapters.restoreHistory(adapterInput(state), command.revision);
+					const saved = await readTarget(state.target.id);
+					return publish({
+						target: saved.target,
+						sourceTree: saved.tree,
+						sourceFingerprint: saved.fingerprint,
+						draftTree: saved.tree,
+						draftFingerprint: saved.fingerprint,
+						stale: false,
+						history: slot("ready", value),
+						...invalidatedDraftChannels(adapters),
+					});
+				} catch (error) {
+					publish({ history: slot("failed", null, diagnosticOf(error)) });
+					throw error;
+				}
+			}
 			default:
 				throw new TypeError(`unknown preset draft command: ${JSON.stringify(command.type)}`);
 		}

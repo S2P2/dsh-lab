@@ -79,7 +79,7 @@ window.__ModuleLoader__.load({
 			const meta = [row.provenance, row.default === undefined ? null : `default: ${valueText(row.default)}`, row.metadata].filter(Boolean).join(" · ");
 			let editor = null;
 			if (control?.type === "toggle") {
-				editor = h("input", { type: "checkbox", checked: row.enabled === true, disabled: editDisabled, "data-row-id": row.id, onChange: (event) => run({ type: "draft.toggle", rowId: row.id, enabled: event.target.checked }) });
+				editor = h("input", { type: "checkbox", checked: control.operation === "field" ? row.value === true : row.enabled === true, disabled: editDisabled, "data-row-id": row.id, onChange: (event) => run(control.operation === "field" ? { type: "draft.edit", rowId: row.id, value: event.target.checked } : { type: "draft.toggle", rowId: row.id, enabled: event.target.checked }) });
 			} else if (control?.type === "select") {
 				editor = h("select", { className: "s2p2p-input", value: row.value ?? "", disabled: editDisabled, "data-row-id": row.id, onChange: (event) => run({ type: "draft.edit", rowId: row.id, value: event.target.value }) },
 					(control.options || []).map((option) => h("option", { key: String(option.value), value: option.value }, option.title || String(option.value))),

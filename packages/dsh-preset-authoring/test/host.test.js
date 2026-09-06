@@ -33,12 +33,36 @@ test("host plugin provides one disposable shared draft service", () => {
 			provided = { name, value };
 			return dispose;
 		},
-	});
+	}, { adapters: { async listTargets() { return []; } } });
 
 	assert.equal(provided.name, serviceName);
 	assert.equal(typeof provided.value.dispatch, "function");
 	assert.equal(typeof provided.value.getSnapshot, "function");
 	assert.equal(returned, dispose);
+});
+
+test("default activation provides the complete shared service and a disposable exact route", async (t) => {
+	const root = await fixture(t);
+	let route;
+	let routeDisposed = false;
+	let cleanup;
+	const serviceDispose = () => {};
+	const ctx = {
+		agentPresets: { roots: [{ path: root, trust: "user" }] },
+		provide(name, value) { this[name] = value; return serviceDispose; },
+		inject(names, callback) {
+			assert.deepEqual(names, ["webServer"]);
+			callback({
+				webServer: { register(descriptor) { route = descriptor; return () => { routeDisposed = true; }; } },
+				effect(factory) { cleanup = factory(); },
+			});
+		},
+	};
+	assert.equal(apply(ctx), serviceDispose);
+	assert.equal(ctx.presetAuthoringDrafts.getSnapshot().inspection.status, "idle");
+	assert.deepEqual({ kind: route.kind, path: route.path }, { kind: "exact", path: "/dsh-preset-authoring/api" });
+	cleanup();
+	assert.equal(routeDisposed, true);
 });
 
 test("DSH roster paths, not trust labels, decide which target is editable", async (t) => {
@@ -106,7 +130,7 @@ test("native copy is followed by a fresh authoritative resolve", async (t) => {
 	assert.equal(resolves, 1);
 	assert.equal(copiedTarget.id, "copy");
 	assert.equal(copiedTarget.editable, true);
-	assert.equal(decodePresetText(copiedTarget.files[0]), "- name: copied\n");
+	assert.equal(new TextDecoder().decode(copiedTarget.files[0].content), "- name: copied\n");
 });
 
 test("complete-directory helpers materialize and restore nested binary trees", async (t) => {
@@ -156,7 +180,7 @@ test("mount materializes the candidate, calls standingKeyFor(targetId), restores
 	const draft = createPresetTree([{ path: "agent.cordis.yml", content: "- name: candidate\n" }]);
 
 	await assert.rejects(
-		adapters.mount({ target: { id: "target" }, source: { tree: source.files }, draft: { tree: draft } }),
+		adapters.mount({ target: { id: "target" }, source: { tree: createPresetTree(source.files) }, draft: { tree: draft } }),
 		(error) => error === failure,
 	);
 	assert.deepEqual(calls, ["target"]);

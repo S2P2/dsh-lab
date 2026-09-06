@@ -44,7 +44,7 @@ async function validateCandidate(id, saved, candidate, hostService) {
 	const source = await adapters.readTarget(id);
 	return adapters.mount({
 		target: { id },
-		source: { tree: source.files },
+		source: { tree: createPresetTree(source.files) },
 		draft: { tree: createPresetTree([{ path: "agent.cordis.yml", content: candidate }]) },
 	});
 }
