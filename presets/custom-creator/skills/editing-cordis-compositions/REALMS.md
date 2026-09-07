@@ -55,6 +55,8 @@ Keep process registries and cross-session infrastructure on the Host plane. This
 
 The subagent registry is the canonical example: Host-side consumers query it across sessions, so a per-session registry would both starve those Host consumers and collide when another session registers the same provider Service. Presets contribute delegation tools; provider registries and provider backends remain Host-side.
 
+The sandbox, approval, and permission rows are a deliberate boundary: a preset is exactly as privileged as the plugins it names, so letting one relax its own confinement would defeat the confinement.
+
 For optional Codex or Claude Code providers, read [`SUBAGENTS.md`](SUBAGENTS.md).
 
 ## Diagnosing realm failures

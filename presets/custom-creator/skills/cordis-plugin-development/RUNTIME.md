@@ -28,7 +28,7 @@ Use the exact `pluginId` and `packageId` returned or inspected. Do not infer ver
 
 ## Approval and asynchronous Client activation
 
-An unauthorized Client Package may return `awaiting-approval`. That is a handoff to the user, not a technical failure and not success.
+An unauthorized Client Package may return `awaiting-approval`. That is a handoff to the user, not a technical failure and not success. A single check mark authorizes only the current Package; double check marks authorize future versions of the same Plugin. A grant remains after a technical runtime failure.
 
 An authorized Package may return `starting` while browser activation continues asynchronously. End the current tool flow and wait for the runtime/browser state update rather than polling in the same turn or claiming completion.
 

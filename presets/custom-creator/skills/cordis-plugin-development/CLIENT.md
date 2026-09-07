@@ -43,7 +43,7 @@ Choose the narrowest settings entry point that still fits the feature.
 
 A full settings surface normally deserves its own settings section. A compact general preference may fit a general settings item. Query the actual subtree and exact Slot contract before choosing.
 
-Dynamic Plugins are process-local. Keep temporary interaction state in memory for the Plugin lifetime unless the requested feature explicitly requires a real persistence Service and the live contract supports it.
+Dynamic Plugins are temporary and process-local, so their settings UI does not need persistent storage. Do not add durable settings or another persistence mechanism for it. Keep transient interaction state in memory for the lifetime of the Plugin.
 
 ## Session and page data
 

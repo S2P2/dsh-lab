@@ -86,6 +86,8 @@ Escalate only the exact intended write and batch coherent file changes so the us
 - preset-owned Services published into the process-global realm;
 - collisions with Services the Host already supplies.
 
+Run `standingKeyFor(id)` as the final check on a finished edit rather than after every line: a successful mount installs a standing generation that lives until the process exits, while a failed one disposes its subtree and leaves nothing behind.
+
 Use the exact returned diagnostic to repair the composition. If the failure names a Service, read [`REALMS.md`](REALMS.md) before changing isolation or plane ownership.
 
 A roster shape flag such as `broken` is not equivalent to mount validation. Shape validation can confirm that a file parses while still missing activation, dependency, or realm failures.

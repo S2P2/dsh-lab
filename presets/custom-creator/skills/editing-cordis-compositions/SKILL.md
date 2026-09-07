@@ -21,7 +21,7 @@ A Cordis composition decides which plugin rows contribute capabilities to a DSH 
 
 The live preset roster is authoritative for preset identity, trust, and resolved paths. A preset reported as system-owned is a template to read or copy. A user-owned preset is the writable artifact.
 
-Keep the system/user boundary intact even when direct filesystem access appears possible. A deployment upgrade can replace system presets, and changing the Creator preset can remove the very authoring capability needed to recover.
+Keep the system/user boundary intact even when direct filesystem access appears possible. Never escalate the sandbox to reach a system preset, even when a change there looks quicker, and never edit the host composition to work around a preset limitation. A deployment upgrade can replace system presets, and changing the Creator preset can remove the very authoring capability needed to recover.
 
 For roster APIs, copying, resolved paths, write escalation, mount probes, and validation diagnostics, read [`AUTHORING.md`](AUTHORING.md).
 
