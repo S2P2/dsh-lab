@@ -13,7 +13,7 @@ Skills shape agent behavior through text; plugins add deterministic tools, UI, a
 | Package | Status | What |
 |---|---|---|
 | [`packages/dsh-grilling-card`](packages/dsh-grilling-card) | 🌱 v0.1 · dogfooding | Rich grilling/interview question card: recommended answers, one-click accept, round-at-a-time, frontier meter, recorded-round transcript view. Dual-face plugin (host `grill_round` tool + composer-takeover card). |
-| [`packages/dsh-ask-card`](packages/dsh-ask-card) | 🌱 early | Rich transcript card for stock `ask_user_question`: shadows the `tool.call.toolview` row at priority -1 — stock look collapsed, question/answer card expanded. |
+| [`packages/dsh-ask-card`](packages/dsh-ask-card) | 🌱 early | Richer transcript view for stock `ask_user_question`: stock shows the question and recorded answer; this plugin adds offered options, recommendations, selections, custom answers, multi-select state, and status context. Expanded cards use more vertical space than stock; collapsed behavior stays stock-like. |
 | `packages/dsh-wayfinder-map` | planned | Decision-ticket map with blocking edges (wayfinder visualization). |
 | `packages/dsh-frontier` | planned | Deterministic implement-spec orchestrator: ticket graph, frontier computation, approval-gated destructive ops. |
 | `packages/dsh-quota-bar` | 🌱 dogfooding | GLM Coding Plan quota card: 5h/weekly/tools windows + reset times in the sidebar footer, host-side fetch over a loopback route. Dock-bar form retired after dogfooding (too distracting); prototype on `prototype/quota-bar-slots`. |
