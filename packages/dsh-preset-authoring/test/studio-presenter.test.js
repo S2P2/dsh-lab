@@ -155,6 +155,23 @@ test("draft.putRows aborts before any draft mutation on bad rows", async () => {
 	);
 });
 
+test("a read-only target rejects studio row saves before any persistence", async () => {
+	const { service, controller } = studioHarness();
+	await controller.command({ type: "target.open", targetId: "shipped" });
+	const view = await controller.command({ type: "panel.snapshot" });
+	assert.equal(view.target.editable, false, "the shipped target projects as read-only (containment, not trust)");
+
+	const editor = view.composition.editor.map((row) => ({ ...row }));
+	editor[0].configText = "text: hostile";
+	await assert.rejects(
+		controller.command(guarded(view, { type: "draft.putRows", rows: editor })),
+		(error) => error.code === "READ_ONLY_PRESET_TARGET",
+	);
+	const state = service.getSnapshot();
+	assert.equal(state.draft.fingerprint, state.source.fingerprint, "the shared draft is untouched by the refused save");
+	assert.equal(state.revision, view.revision, "no state advanced");
+});
+
 test("draft.putRows stays CAS-guarded like every draft mutation", async () => {
 	const { controller } = studioHarness();
 	await controller.command({ type: "target.open", targetId: "editable" });

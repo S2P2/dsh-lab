@@ -11,7 +11,8 @@
  * https://github.com/RongleCat/deepseek-app
  * pinned commit e1be3e82119b85110b58f10c808076ecc7b422f4
  * `src/renderer/components/settings/PresetStudio.tsx` — the editor-tree patch
- * helpers, display classifier, and moduleShortName below are ported from it.
+ * helpers, display classifier, moduleShortName, and the in-panel CopyForm
+ * (source select, required new id, optional name) below are ported from it.
  * The browser keeps no second Preset Draft: every committed change goes
  * through the Host (`draft.putRows` serializes Host-side), and the local row
  * tree is ephemeral form state that is CAS-guarded on save.
@@ -42,7 +43,7 @@ window.__ModuleLoader__.load({
 
 		const CSS = `
 .s2p2p-root,.s2p2p-root *{box-sizing:border-box}.s2p2p-root{height:100%;overflow:auto;padding:12px;color:var(--dsw-alias-label-primary,#e6e9ef);font:13px/1.45 var(--dsw-font-family,sans-serif)}
-.s2p2p-head,.s2p2p-row,.s2p2p-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.s2p2p-head{justify-content:space-between;margin-bottom:10px}.s2p2p-title{font-size:16px;font-weight:650}.s2p2p-sub,.s2p2p-meta{color:var(--dsw-alias-label-tertiary,#8b949e);font-size:11px}.s2p2p-label{font-size:11px;color:var(--dsw-alias-label-secondary,#aab2c0);display:block;margin:9px 0 4px}.s2p2p-select,.s2p2p-input{width:100%;min-width:0;background:var(--dsw-alias-bg-base,#101319);color:inherit;border:1px solid var(--dsw-alias-border-l1,#30363d);border-radius:7px;padding:6px 8px}.s2p2p-btn{border:1px solid var(--dsw-alias-border-l1,#30363d);border-radius:7px;background:var(--dsw-alias-bg-base,#101319);color:inherit;padding:5px 9px;cursor:pointer}.s2p2p-btn:disabled{opacity:.5;cursor:default}.s2p2p-btn.primary{background:var(--dsw-alias-state-business-primary,#3b82f6);color:#fff;border-color:transparent}.s2p2p-card{border:1px solid var(--dsw-alias-border-l1,#30363d);border-radius:9px;margin:10px 0;background:var(--dsw-alias-bg-layer-1,#161a22);overflow:hidden}.s2p2p-card>summary,.s2p2p-card>h3{padding:8px 10px;margin:0;font-size:12px;font-weight:650}.s2p2p-body{padding:0 10px 10px}.s2p2p-item{padding:8px 0;border-top:1px solid var(--dsw-alias-border-l2,#242936)}.s2p2p-item:first-child{border-top:0}.s2p2p-row{justify-content:space-between}.s2p2p-status{padding:7px 9px;border-radius:7px;background:var(--dsw-alias-bg-base,#101319);white-space:pre-wrap}.s2p2p-status.bad{color:var(--dsw-alias-state-error-primary,#f87171)}.s2p2p-status.warn{color:var(--dsw-alias-state-warn-primary,#fbbf24)}.s2p2p-diff,.s2p2p-pre{font:11px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere}.s2p2p-pre{margin:0;padding:7px 9px;border-radius:7px;background:var(--dsw-alias-bg-base,#101319)}.s2p2p-banner{padding:8px;border:1px solid var(--dsw-alias-state-warn-primary,#fbbf24);border-radius:8px;color:var(--dsw-alias-state-warn-primary,#fbbf24);margin:8px 0}.s2p2p-empty{padding:20px 8px;text-align:center;color:var(--dsw-alias-label-tertiary,#8b949e)}
+.s2p2p-head,.s2p2p-row,.s2p2p-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.s2p2p-head{justify-content:space-between;margin-bottom:10px}.s2p2p-title{font-size:16px;font-weight:650}.s2p2p-sub,.s2p2p-meta{color:var(--dsw-alias-label-tertiary,#8b949e);font-size:11px}.s2p2p-label{font-size:11px;color:var(--dsw-alias-label-secondary,#aab2c0);display:block;margin:9px 0 4px}.s2p2p-select,.s2p2p-input{width:100%;min-width:0;background:var(--dsw-alias-bg-base,#101319);color:inherit;border:1px solid var(--dsw-alias-border-l1,#30363d);border-radius:7px;padding:6px 8px}.s2p2p-btn{border:1px solid var(--dsw-alias-border-l1,#30363d);border-radius:7px;background:var(--dsw-alias-bg-base,#101319);color:inherit;padding:5px 9px;cursor:pointer}.s2p2p-btn:disabled{opacity:.5;cursor:default}.s2p2p-btn.primary{background:var(--dsw-alias-state-business-primary,#3b82f6);color:#fff;border-color:transparent}.s2p2p-card{border:1px solid var(--dsw-alias-border-l1,#30363d);border-radius:9px;margin:10px 0;background:var(--dsw-alias-bg-layer-1,#161a22);overflow:hidden}.s2p2p-card>summary,.s2p2p-card>h3{padding:8px 10px;margin:0;font-size:12px;font-weight:650}.s2p2p-body{padding:0 10px 10px}.s2p2p-item{padding:8px 0;border-top:1px solid var(--dsw-alias-border-l2,#242936)}.s2p2p-item:first-child{border-top:0}.s2p2p-row{justify-content:space-between}.s2p2p-status{padding:7px 9px;border-radius:7px;background:var(--dsw-alias-bg-base,#101319);white-space:pre-wrap}.s2p2p-status.bad{color:var(--dsw-alias-state-error-primary,#f87171)}.s2p2p-status.warn{color:var(--dsw-alias-state-warn-primary,#fbbf24)}.s2p2p-diff,.s2p2p-pre{font:11px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere}.s2p2p-pre{margin:0;padding:7px 9px;border-radius:7px;background:var(--dsw-alias-bg-base,#101319)}.s2p2p-banner{padding:8px;border:1px solid var(--dsw-alias-state-warn-primary,#fbbf24);border-radius:8px;color:var(--dsw-alias-state-warn-primary,#fbbf24);margin:8px 0}.s2p2p-banner .s2p2p-btn{margin-top:6px}.s2p2p-copy{padding:2px 0 4px}.s2p2p-empty{padding:20px 8px;text-align:center;color:var(--dsw-alias-label-tertiary,#8b949e)}
 .s2p2p-tabs{display:flex;gap:6px;margin:10px 0;flex-wrap:wrap}.s2p2p-chip{border:1px solid var(--dsw-alias-border-l1,#30363d);border-radius:99px;background:var(--dsw-alias-bg-base,#101319);color:inherit;font-size:12px;padding:4px 11px;cursor:pointer}.s2p2p-chip.on{background:var(--dsw-alias-state-business-primary,#3b82f6);color:#fff;border-color:transparent}.s2p2p-badge{font-size:10px;line-height:1;padding:3px 7px;border-radius:99px;border:1px solid var(--dsw-alias-border-l2,#242936);color:var(--dsw-alias-label-secondary,#aab2c0)}.s2p2p-badge.system{color:var(--dsw-alias-state-business-primary,#60a5fa)}.s2p2p-badge.user{color:var(--dsw-alias-state-warn-primary,#fbbf24)}.s2p2p-kind{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none;background:var(--dsw-alias-label-tertiary,#8b949e)}.s2p2p-kind--tool{background:var(--dsw-alias-state-business-primary,#3b82f6)}.s2p2p-kind--prompt{background:var(--dsw-alias-state-success-primary,#4ade80)}.s2p2p-kind--delegation{background:var(--dsw-alias-state-warn-primary,#fbbf24)}.s2p2p-kind--group{background:var(--dsw-alias-label-secondary,#aab2c0)}.s2p2p-kind--other{background:var(--dsw-alias-label-tertiary,#8b949e)}.s2p2p-crow{display:flex;align-items:center;gap:8px;padding:4px 0}.s2p2p-crow code{font:11px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere}.s2p2p-editor-row{border:1px solid var(--dsw-alias-border-l2,#242936);border-radius:8px;margin:8px 0;padding:8px;background:var(--dsw-alias-bg-base,#101319)}.s2p2p-editor-head{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.s2p2p-editor-head .s2p2p-input{width:auto;flex:1 1 120px;min-width:0}.s2p2p-editor-id{flex:0 1 110px !important}.s2p2p-editor-children{margin:8px 0 0 20px}.s2p2p-textarea{width:100%;min-height:70px;background:var(--dsw-alias-bg-base,#101319);color:inherit;border:1px solid var(--dsw-alias-border-l1,#30363d);border-radius:7px;padding:6px 8px;font:11px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}.s2p2p-check{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--dsw-alias-label-secondary,#aab2c0)}.s2p2p-hint{font-size:12px;margin:6px 0}.s2p2p-hint.ok{color:var(--dsw-alias-state-success-primary,#4ade80)}.s2p2p-hint.err{color:var(--dsw-alias-state-error-primary,#f87171)}
 `;
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(CSS_TAG) + "]") === null) {
@@ -120,6 +121,49 @@ window.__ModuleLoader__.load({
 			return { key, id: "", name: "", disabled: false, group: false, isolate: {}, configText: "", children: [] };
 		}
 
+		// Advisory pre-save row validation. This is a minimal inlined mirror of
+		// the Host-side checks `rowsFromEditor` runs (preset-editor-model.js +
+		// preset-yaml.js, both MIT-adapted from upstream; see UPSTREAM.md): a
+		// row without a package name and a non-empty config with unbalanced
+		// flow collections can never serialize. It only reports definite
+		// errors so it can never disagree with the authoritative Host check —
+		// the server-side PRESET_ROW_NEEDS_PACKAGE / PRESET_BAD_ROW_CONFIG
+		// rejection remains the final word.
+		function balancedFlowCollections(text) {
+			const stack = [];
+			let quote = null;
+			for (let i = 0; i < text.length; i += 1) {
+				const c = text[i];
+				if (quote) {
+					if (c === quote) quote = null;
+					continue;
+				}
+				if (c === "'" || c === '"') {
+					quote = c;
+					continue;
+				}
+				if (c === "[" || c === "{") stack.push(c);
+				else if (c === "]") { if (stack.pop() !== "[") return false; }
+				else if (c === "}") { if (stack.pop() !== "{") return false; }
+			}
+			return stack.length === 0;
+		}
+
+		function rowIssues(rows, out = new Map()) {
+			for (const row of rows) {
+				if (!String(row.name || "").trim()) out.set(row.key, "needPackage");
+				else if (!row.group && String(row.configText || "").trim() !== "" && !balancedFlowCollections(row.configText)) out.set(row.key, "badConfig");
+				if (row.group) rowIssues(row.children || [], out);
+			}
+			return out;
+		}
+
+		function issueText(issue) {
+			return issue === "needPackage"
+				? "This row needs a package name before it can be saved."
+				: "This config cannot be saved: an unbalanced [ or { can never serialize back faithfully.";
+		}
+
 		function inventoryNamesOf(inventory) {
 			const set = new Set((inventory?.entries || []).map((entry) => entry.moduleName).filter(Boolean));
 			set.add("cordis:group");
@@ -163,12 +207,13 @@ window.__ModuleLoader__.load({
 				)));
 		}
 
-		function EditorRowView({ row, disabled, onPatch, onRemove }) {
+		function EditorRowView({ row, disabled, issues, onPatch, onRemove }) {
+			const issue = issues.get(row.key);
 			return h("div", { className: "s2p2p-editor-row", "data-row-key": row.key },
 				h("div", { className: "s2p2p-editor-head" },
 					h("span", { className: "s2p2p-kind s2p2p-kind--" + categorizeRow(row.name, row.group), "aria-hidden": "true" }),
 					h("input", { className: "s2p2p-input s2p2p-editor-id", value: row.id, placeholder: "row id", spellCheck: false, disabled, "aria-label": "Row id", onChange: (event) => onPatch({ id: event.target.value }) }),
-					h("input", { className: "s2p2p-input", list: INVENTORY_LIST_ID, value: row.name, placeholder: "package name", spellCheck: false, disabled, "aria-label": "Package name", onChange: (event) => onPatch({ name: event.target.value }) }),
+					h("input", { className: "s2p2p-input", list: INVENTORY_LIST_ID, value: row.name, placeholder: "package name", spellCheck: false, disabled, "aria-invalid": issue === "needPackage" || undefined, "aria-label": "Package name", onChange: (event) => onPatch({ name: event.target.value }) }),
 					row.name ? h("span", { className: "s2p2p-meta" }, moduleShortName(row.name)) : null,
 					h("label", { className: "s2p2p-check", title: "Disabled rows stay in the composition but do not load" },
 						h("input", { type: "checkbox", checked: row.disabled === true, disabled, onChange: (event) => onPatch({ disabled: event.target.checked }) }),
@@ -181,6 +226,7 @@ window.__ModuleLoader__.load({
 							key: child.key,
 							row: child,
 							disabled,
+							issues,
 							onPatch: (patch) => onPatch({ children: mutateEditor(row.children, child.key, patch) }),
 							onRemove: () => onPatch({ children: removeEditorRow(row.children, child.key) }),
 						})),
@@ -188,12 +234,14 @@ window.__ModuleLoader__.load({
 					)
 					: h("div", null,
 						h("span", { className: "s2p2p-label" }, "config (YAML)"),
-						h("textarea", { className: "s2p2p-textarea", value: row.configText, spellCheck: false, rows: 4, disabled, placeholder: "key: value", "aria-label": "Row config YAML", onChange: (event) => onPatch({ configText: event.target.value }) }),
+						h("textarea", { className: "s2p2p-textarea", value: row.configText, spellCheck: false, rows: 4, disabled, "aria-invalid": issue === "badConfig" || undefined, placeholder: "key: value", "aria-label": "Row config YAML", onChange: (event) => onPatch({ configText: event.target.value }) }),
 					),
+				issue ? h("div", { className: "s2p2p-status bad", role: "alert" }, issueText(issue)) : null,
 			);
 		}
 
 		function RowEditor({ editor, inventoryNames, disabled, diverged, onPatch, onRemove, onSave, onReload, onAddRow }) {
+			const issues = disabled ? new Map() : rowIssues(editor);
 			return h("div", null,
 				h("datalist", { id: INVENTORY_LIST_ID }, inventoryNames.map((name) => h("option", { key: name, value: name }))),
 				inventoryNames.length > 1
@@ -204,11 +252,12 @@ window.__ModuleLoader__.load({
 					h("button", { type: "button", className: "s2p2p-btn", onClick: onReload }, "Reload rows"),
 				) : null,
 				editor.length === 0 ? h("div", { className: "s2p2p-empty" }, "No composition rows") : null,
-				editor.map((row) => h(EditorRowView, { key: row.key, row, disabled, onPatch: (patch) => onPatch(row.key, patch), onRemove: () => onRemove(row.key) })),
+				editor.map((row) => h(EditorRowView, { key: row.key, row, disabled, issues, onPatch: (patch) => onPatch(row.key, patch), onRemove: () => onRemove(row.key) })),
 				h("div", { className: "s2p2p-actions" },
 					h("button", { type: "button", className: "s2p2p-btn", disabled, onClick: onAddRow }, "+ Add row"),
-					h("button", { type: "button", className: "s2p2p-btn primary", disabled, onClick: onSave }, "Save rows to draft"),
+					h("button", { type: "button", className: "s2p2p-btn primary", disabled: disabled || issues.size > 0, title: issues.size > 0 ? "Fix the flagged rows first" : undefined, onClick: onSave }, "Save rows to draft"),
 				),
+				issues.size > 0 ? h("div", { className: "s2p2p-status warn" }, issues.size, " row", issues.size === 1 ? "" : "s", " cannot be saved yet. Validation is advisory here; the Host repeats it authoritatively on save.") : null,
 			);
 		}
 
@@ -231,6 +280,27 @@ window.__ModuleLoader__.load({
 			};
 		}
 
+		// In-panel copy-first form (upstream CopyForm, PresetStudio.tsx:257-315
+		// pattern): source preset select, required new id, optional display
+		// name. It never writes presets itself — the Host's `target.copy`
+		// command performs DSH's native copy and opens the editable result.
+		function CopyForm({ targets, sourceId, id, name, hint, busy, onField, onSubmit }) {
+			return h("div", { className: "s2p2p-copy", "data-copy-form": "" },
+				h("label", { className: "s2p2p-label", htmlFor: "s2p2p-copy-source" }, "Copy from"),
+				h("select", { id: "s2p2p-copy-source", className: "s2p2p-select", value: sourceId, disabled: !!busy, "aria-label": "Copy source", onChange: (event) => onField({ sourceId: event.target.value }) },
+					targets.map((item) => h("option", { key: item.id, value: item.id }, item.title || item.id)),
+				),
+				h("label", { className: "s2p2p-label", htmlFor: "s2p2p-copy-id" }, "New preset id (required)"),
+				h("input", { id: "s2p2p-copy-id", className: "s2p2p-input", value: id, placeholder: "my-preset", spellCheck: false, disabled: !!busy, "aria-label": "New preset id", onChange: (event) => onField({ id: event.target.value }) }),
+				h("label", { className: "s2p2p-label", htmlFor: "s2p2p-copy-name" }, "Display name (optional)"),
+				h("input", { id: "s2p2p-copy-name", className: "s2p2p-input", value: name, spellCheck: false, disabled: !!busy, "aria-label": "New preset name", onChange: (event) => onField({ name: event.target.value }) }),
+				hint?.text ? h("div", { className: "s2p2p-status " + (hint.tone === "err" ? "bad" : "ok"), role: "alert" }, hint.text) : null,
+				h("div", { className: "s2p2p-actions" },
+					h("button", { type: "button", className: "s2p2p-btn primary", disabled: !!busy, onClick: onSubmit }, busy === "target.copy" ? "Copying…" : "Copy to editable"),
+				),
+			);
+		}
+
 		function PresetTab({ visible, scope, transport, pollMs }) {
 			const [snapshot, setSnapshot] = React.useState(null);
 			const [busy, setBusy] = React.useState(null);
@@ -239,6 +309,8 @@ window.__ModuleLoader__.load({
 			const [editorState, setEditorState] = React.useState(null);
 			const [mode, setMode] = React.useState("composition");
 			const [hint, setHint] = React.useState(null);
+			const [copy, setCopy] = React.useState({ sourceId: "", id: "", name: "" });
+			const [copyHint, setCopyHint] = React.useState(null);
 
 			const load = React.useCallback(async () => {
 				try {
@@ -292,6 +364,10 @@ window.__ModuleLoader__.load({
 					await load();
 					return next;
 				} catch (cause) {
+					// Refresh even on failure: the Host state often advanced
+					// (a blocked Apply marks the draft stale) and the banner
+					// for it lives in the authoritative snapshot.
+					await load();
 					setError(cause instanceof Error ? cause.message : String(cause));
 					return null;
 				} finally { setBusy(null); }
@@ -318,8 +394,49 @@ window.__ModuleLoader__.load({
 					await load();
 					setHint({ tone: "ok", text: "Rows saved to the shared draft. Apply writes the saved preset." });
 				} catch (cause) {
+					const conflict = cause?.code === "PRESET_DRAFT_CONFLICT";
+					// A conflicted save means the shared draft moved on elsewhere
+					// (another surface, Apply, or restore). Refresh so the
+					// divergence banner appears immediately; the local rows stay
+					// intact for a reload-and-retry against the fresh CAS fields.
+					if (conflict) await load();
 					setError(cause instanceof Error ? cause.message : String(cause));
-					setHint({ tone: "err", text: cause?.code === "PRESET_BAD_ROW_CONFIG" ? "A row config is not valid YAML for this editor — fix it before saving." : cause?.code === "PRESET_ROW_NEEDS_PACKAGE" ? "Every composition row needs a package name." : null });
+					setHint({ tone: "err", text: conflict
+						? "The shared draft changed while these rows were open. Use Reload rows to adopt the current draft, then save again."
+						: cause?.code === "PRESET_BAD_ROW_CONFIG" ? "A row config is not valid YAML for this editor — fix it before saving."
+						: cause?.code === "PRESET_ROW_NEEDS_PACKAGE" ? "Every composition row needs a package name."
+						: null });
+				} finally { setBusy(null); }
+			};
+
+			const submitCopy = async () => {
+				if (!snapshot) return;
+				const targets = snapshot.targets || [];
+				const sourceId = copy.sourceId || snapshot.target?.id || targets[0]?.id || "";
+				const targetId = copy.id.trim();
+				if (!targetId) {
+					setCopyHint({ tone: "err", text: "A new preset id is required." });
+					return;
+				}
+				setBusy("target.copy");
+				setError(null);
+				setCopyHint(null);
+				try {
+					const name = copy.name.trim();
+					const next = await transport.command({ type: "target.copy", sourceId, targetId, ...(name ? { name } : {}) }, scope);
+					if (next && typeof next === "object") {
+						setSnapshot(next);
+						setEditorState(seedEditor(next));
+					}
+					await load();
+					setCopy({ sourceId: "", id: "", name: "" });
+					// The form closes once the editable copy becomes the target,
+					// so the confirmation renders at panel level.
+					setHint({ tone: "ok", text: `Copied to ${targetId}. The editable copy is now the target.` });
+				} catch (cause) {
+					// Upstream CopyForm behavior: keep the entered values and
+					// surface the Host diagnostic inline; nothing was written.
+					setCopyHint({ tone: "err", text: cause instanceof Error ? cause.message : String(cause) });
 				} finally { setBusy(null); }
 			};
 
@@ -346,12 +463,23 @@ window.__ModuleLoader__.load({
 					target.broken ? h("span", { className: "s2p2p-badge" }, "broken") : null,
 					target.description ? h("span", { className: "s2p2p-meta" }, target.description) : null,
 				) : null,
-				readOnly && target ? h("div", { className: "s2p2p-banner" }, h("div", null, target.id, " is read-only. System targets cannot be edited in place."), h("button", { className: "s2p2p-btn", disabled: !!busy, onClick: () => {
-					const suggested = `${target.id}-copy`;
-					const targetId = typeof window.prompt === "function" ? window.prompt("Editable preset id", suggested) : suggested;
-					if (targetId) run({ type: "target.copy", sourceId: target.id, targetId });
-				} }, "Copy to editable")) : null,
-				snapshot.stale ? h("div", { className: "s2p2p-banner" }, "Stale Preset Draft — the saved target changed. Reopen or reconcile before Apply.") : null,
+				readOnly && target ? h("div", { className: "s2p2p-banner" },
+					h("div", null, target.id, " is read-only. System and shipped targets cannot be edited in place — copy one into the editable preset root to start from it."),
+					h(CopyForm, {
+						targets: snapshot.targets || [],
+						sourceId: copy.sourceId || target.id,
+						id: copy.id,
+						name: copy.name,
+						hint: copyHint,
+						busy,
+						onField: (patch) => { setCopy((previous) => ({ ...previous, ...patch })); setCopyHint(null); },
+						onSubmit: submitCopy,
+					}),
+				) : null,
+				snapshot.stale ? h("div", { className: "s2p2p-banner" },
+					h("div", null, "Stale Preset Draft — the saved target changed on disk after this draft opened. Reopen adopts the saved target as a fresh draft; Apply stays blocked until then."),
+					h("button", { type: "button", className: "s2p2p-btn", disabled: !!busy || !target, onClick: () => run({ type: "target.open", targetId: target.id }) }, "Reopen target"),
+				) : null,
 				error ? h("div", { className: "s2p2p-status bad" }, error) : null,
 				hint?.text ? h("div", { className: "s2p2p-hint " + (hint.tone === "ok" ? "ok" : "err") }, hint.text) : null,
 				h("div", { className: "s2p2p-tabs" },

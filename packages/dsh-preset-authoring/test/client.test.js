@@ -377,6 +377,223 @@ test("a draft that changed elsewhere shows a divergence banner instead of clobbe
 	harness.dispose();
 });
 
+test("read-only target copies through the in-panel form, never window.prompt, and opens the editable copy", async () => {
+	// the panel bundle must not fall back to blocking browser dialogs
+	assert.equal(/\bwindow\.prompt\b|\bprompt\s*\(/.test(readFileSync(new URL("../src/client.js", import.meta.url), "utf8")), false);
+
+	const harness = reactHarness();
+	const copied = { id: "creator-copy", title: "My Copy", editable: true, trust: "user" };
+	let current = panel; // target: system (read-only)
+	const commands = [];
+	const transport = { command: async (command, scope) => {
+		commands.push({ command, scope });
+		if (command.type === "inventory.list") return inventory;
+		if (command.type === "target.copy") {
+			current = { ...panel, targets: [...panel.targets, copied], target: copied, stale: false };
+			return current;
+		}
+		return current;
+	} };
+	let descriptor;
+	const service = { current: { registerTab(tab) { descriptor = tab; return () => {}; } } };
+	const { plugin } = loadBundle({ React: harness.React });
+	plugin.apply(context(service), { transport, pollMs: 20 });
+	const props = { visible: true, scope: { sessionId: "s" }, tab: {} };
+	harness.render(descriptor.component, props);
+	await new Promise((resolve) => setImmediate(resolve));
+	let tree = harness.render(descriptor.component, props);
+
+	// the in-panel form replaces the prompt dialog; source defaults to the read-only target
+	const form = findAll(tree, (node) => node.props["data-copy-form"] === "")[0];
+	assert.ok(form, "selecting a read-only target shows the in-panel copy form");
+	assert.equal(findAll(form, (node) => node.type === "select")[0].props.value, "system");
+	assert.deepEqual(
+		findAll(form, (node) => node.type === "option").map((option) => option.props.value),
+		["system", "worker"],
+	);
+
+	// an empty id is refused in-panel without a round trip
+	findAll(form, (node) => node.type === "button" && buttonText(node) === "Copy to editable")[0].props.onClick();
+	await new Promise((resolve) => setImmediate(resolve));
+	tree = harness.render(descriptor.component, props);
+	assert.match(textOf(tree), /A new preset id is required/);
+	assert.equal(commands.some(({ command }) => command.type === "target.copy"), false);
+
+	// a filled form copies through the Host seam and opens the editable result
+	const idInput = findAll(tree, (node) => node.props["aria-label"] === "New preset id")[0];
+	idInput.props.onChange({ target: { value: " creator-copy " } });
+	findAll(tree, (node) => node.props["aria-label"] === "New preset name")[0].props.onChange({ target: { value: "My Copy" } });
+	tree = harness.render(descriptor.component, props);
+	findAll(tree, (node) => node.type === "button" && buttonText(node) === "Copy to editable")[0].props.onClick();
+	await new Promise((resolve) => setImmediate(resolve));
+	const copyCommand = commands.find(({ command }) => command.type === "target.copy").command;
+	assert.deepEqual({ type: copyCommand.type, sourceId: copyCommand.sourceId, targetId: copyCommand.targetId, name: copyCommand.name }, {
+		type: "target.copy", sourceId: "system", targetId: "creator-copy", name: "My Copy",
+	});
+
+	tree = harness.render(descriptor.component, props);
+	const text = textOf(tree);
+	assert.match(text, /My Copy user editable/, "the editable copy becomes the target");
+	assert.match(text, /Copied to creator-copy/);
+	assert.equal(findAll(tree, (node) => node.props["data-copy-form"] === "").length, 0, "the copy form closes for an editable target");
+	// the copy is immediately editable: the generic row editor unlocks
+	findAll(tree, (node) => node.type === "button" && buttonText(node) === "Row editor")[0].props.onClick();
+	tree = harness.render(descriptor.component, props);
+	assert.equal(findAll(tree, (node) => node.type === "input" && node.props.list === "s2p2p-inventory-names")[0].props.disabled, false);
+	harness.dispose();
+});
+
+test("a failed copy keeps the form open with the Host diagnostic", async () => {
+	const harness = reactHarness();
+	const commands = [];
+	const transport = { command: async (command) => {
+		commands.push(command);
+		if (command.type === "inventory.list") return inventory;
+		if (command.type === "target.copy") {
+			throw Object.assign(new Error("preset id already exists"), { code: "PRESET_COPY_FAILED" });
+		}
+		return panel;
+	} };
+	let descriptor;
+	const service = { current: { registerTab(tab) { descriptor = tab; return () => {}; } } };
+	const { plugin } = loadBundle({ React: harness.React });
+	plugin.apply(context(service), { transport, pollMs: 20 });
+	const props = { visible: true, scope: { sessionId: "s" }, tab: {} };
+	harness.render(descriptor.component, props);
+	await new Promise((resolve) => setImmediate(resolve));
+	let tree = harness.render(descriptor.component, props);
+
+	findAll(tree, (node) => node.props["aria-label"] === "New preset id")[0].props.onChange({ target: { value: "taken" } });
+	tree = harness.render(descriptor.component, props);
+	findAll(tree, (node) => node.type === "button" && buttonText(node) === "Copy to editable")[0].props.onClick();
+	await new Promise((resolve) => setImmediate(resolve));
+	tree = harness.render(descriptor.component, props);
+
+	assert.match(textOf(tree), /preset id already exists/, "the host diagnostic renders inline");
+	const form = findAll(tree, (node) => node.props["data-copy-form"] === "")[0];
+	assert.ok(form, "the form stays open with its values for a corrected retry");
+	assert.equal(findAll(form, (node) => node.props["aria-label"] === "New preset id")[0].props.value, "taken");
+	harness.dispose();
+});
+
+test("invalid row configs are flagged per row before Save without a server round trip", async () => {
+	const harness = reactHarness();
+	let current = { ...panel, target: panel.targets[1], stale: false };
+	const commands = [];
+	const transport = { command: async (command) => { commands.push(command); return command.type === "inventory.list" ? inventory : current; } };
+	let descriptor;
+	const service = { current: { registerTab(tab) { descriptor = tab; return () => {}; } } };
+	const { plugin } = loadBundle({ React: harness.React });
+	plugin.apply(context(service), { transport, pollMs: 20 });
+	const props = { visible: true, scope: { sessionId: "s" }, tab: {} };
+	harness.render(descriptor.component, props);
+	await new Promise((resolve) => setImmediate(resolve));
+	let tree = harness.render(descriptor.component, props);
+	findAll(tree, (node) => node.type === "button" && buttonText(node) === "Row editor")[0].props.onClick();
+	tree = harness.render(descriptor.component, props);
+
+	const rowById = (key) => findAll(tree, (node) => node.type === "div" && node.props["data-row-key"] === key)[0];
+	const alertOf = (row) => findAll(row, (node) => node.props.role === "alert")[0];
+	const saveButton = () => findAll(tree, (node) => node.type === "button" && buttonText(node) === "Save rows to draft")[0];
+
+	// unbalanced flow collection: flagged on that row only; Save disabled; nothing sent
+	findAll(rowById("0"), (node) => node.type === "textarea")[0].props.onChange({ target: { value: "text: [unclosed" } });
+	tree = harness.render(descriptor.component, props);
+	assert.match(textOf(alertOf(rowById("0"))), /unbalanced \[ or \{/);
+	assert.equal(findAll(rowById("0"), (node) => node.type === "textarea")[0].props["aria-invalid"], true);
+	assert.equal(alertOf(rowById("1")), undefined, "other rows are not flagged");
+	assert.equal(saveButton().props.disabled, true);
+	assert.match(textOf(tree), /1\s+row\s+cannot be saved yet/);
+	await new Promise((resolve) => setImmediate(resolve));
+	assert.equal(commands.some(({ type }) => type === "draft.putRows"), false, "no save round trip happens");
+
+	// a missing package name is flagged the same way
+	findAll(rowById("0"), (node) => node.type === "input" && node.props["aria-label"] === "Package name")[0].props.onChange({ target: { value: " " } });
+	tree = harness.render(descriptor.component, props);
+	assert.match(textOf(alertOf(rowById("0"))), /needs a package name/);
+
+	// fixing the row re-enables the save
+	findAll(rowById("0"), (node) => node.type === "textarea")[0].props.onChange({ target: { value: "text: ok" } });
+	findAll(rowById("0"), (node) => node.type === "input" && node.props["aria-label"] === "Package name")[0].props.onChange({ target: { value: "@deepseek-ai/dsh-persona" } });
+	tree = harness.render(descriptor.component, props);
+	assert.equal(alertOf(rowById("0")), undefined);
+	assert.equal(saveButton().props.disabled, false);
+	harness.dispose();
+});
+
+test("a conflicted save refreshes the snapshot and guides a reload-and-retry", async () => {
+	const harness = reactHarness();
+	let current = { ...panel, target: panel.targets[1], stale: false };
+	const commands = [];
+	const transport = { command: async (command) => {
+		commands.push(command);
+		if (command.type === "inventory.list") return inventory;
+		if (command.type === "draft.putRows") {
+			// the shared draft moved on elsewhere while these rows were open
+			current = { ...current, revision: 18, draftFingerprint: "moved-on" };
+			throw Object.assign(new Error("preset draft changed; refresh and retry against the current snapshot"), { code: "PRESET_DRAFT_CONFLICT" });
+		}
+		return current;
+	} };
+	let descriptor;
+	const service = { current: { registerTab(tab) { descriptor = tab; return () => {}; } } };
+	const { plugin } = loadBundle({ React: harness.React });
+	plugin.apply(context(service), { transport, pollMs: 20 });
+	const props = { visible: true, scope: { sessionId: "s" }, tab: {} };
+	harness.render(descriptor.component, props);
+	await new Promise((resolve) => setImmediate(resolve));
+	let tree = harness.render(descriptor.component, props);
+	findAll(tree, (node) => node.type === "button" && buttonText(node) === "Row editor")[0].props.onClick();
+	tree = harness.render(descriptor.component, props);
+	findAll(tree, (node) => node.type === "input" && node.props["aria-label"] === "Row id")[0].props.onChange({ target: { value: "persona-2" } });
+	tree = harness.render(descriptor.component, props);
+	findAll(tree, (node) => node.type === "button" && buttonText(node) === "Save rows to draft")[0].props.onClick();
+	await new Promise((resolve) => setImmediate(resolve));
+	tree = harness.render(descriptor.component, props);
+
+	// the conflict surfaces with the divergence banner and a retry hint
+	assert.match(textOf(tree), /preset draft changed; refresh and retry/);
+	assert.match(textOf(tree), /shared draft changed after these rows were loaded/);
+	assert.match(textOf(tree), /Use Reload rows to adopt the current draft, then save again/);
+
+	// reload adopts the current draft; the retried save carries fresh CAS fields
+	findAll(tree, (node) => node.type === "button" && buttonText(node) === "Reload rows")[0].props.onClick();
+	tree = harness.render(descriptor.component, props);
+	findAll(tree, (node) => node.type === "input" && node.props["aria-label"] === "Row id")[0].props.onChange({ target: { value: "persona-3" } });
+	tree = harness.render(descriptor.component, props);
+	findAll(tree, (node) => node.type === "button" && buttonText(node) === "Save rows to draft")[0].props.onClick();
+	await new Promise((resolve) => setImmediate(resolve));
+	const retry = commands.filter(({ type }) => type === "draft.putRows").at(-1);
+	assert.equal(retry.expectedRevision, 18);
+	assert.equal(retry.expectedDraftFingerprint, "moved-on");
+	assert.equal(retry.rows.find((row) => row.key === "0").id, "persona-3", "the local edit survives the retry");
+	harness.dispose();
+});
+
+test("the stale banner offers reopening the target as a fresh draft", async () => {
+	const harness = reactHarness();
+	const stalePanel = { ...panel, target: panel.targets[1], stale: true };
+	const commands = [];
+	const transport = { command: async (command) => { commands.push(command); return command.type === "inventory.list" ? inventory : stalePanel; } };
+	let descriptor;
+	const service = { current: { registerTab(tab) { descriptor = tab; return () => {}; } } };
+	const { plugin } = loadBundle({ React: harness.React });
+	plugin.apply(context(service), { transport, pollMs: 20 });
+	const props = { visible: true, scope: { sessionId: "s" }, tab: {} };
+	harness.render(descriptor.component, props);
+	await new Promise((resolve) => setImmediate(resolve));
+	const tree = harness.render(descriptor.component, props);
+
+	assert.match(textOf(tree), /Stale Preset Draft/);
+	const reopen = findAll(tree, (node) => node.type === "button" && buttonText(node) === "Reopen target")[0];
+	assert.ok(reopen, "the banner carries an explicit reopen action");
+	reopen.props.onClick();
+	await new Promise((resolve) => setImmediate(resolve));
+	const openCommand = commands.find(({ type }) => type === "target.open");
+	assert.deepEqual({ type: openCommand.type, targetId: openCommand.targetId }, { type: "target.open", targetId: "worker" });
+	harness.dispose();
+});
+
 test("target selector shows an explicit empty choice before a target is opened", async () => {
 	const harness = reactHarness();
 	const snapshot = { ...panel, target: null, stale: false, composition: { path: "agent.cordis.yml", present: false } };
