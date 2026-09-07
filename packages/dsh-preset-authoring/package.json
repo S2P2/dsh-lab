@@ -9,8 +9,11 @@
     "./client": "./src/client.js",
     "./domain": "./src/domain.js",
     "./git": "./src/git.js",
+    "./preset-editor-model": "./src/preset-editor-model.js",
+    "./preset-yaml": "./src/preset-yaml.js",
     "./presenter": "./src/presenter.js",
     "./semantics": "./src/semantics.js",
+    "./studio-presenter": "./src/studio-presenter.js",
     "./package.json": "./package.json"
   },
   "dsh": {
@@ -49,7 +52,7 @@
     "@deepseek-ai/dsh-tools": "0.1.2-rc.1",
     "@deepseek-ai/schemastery": "3.18.2"
   },
-  "files": ["src", "test", "cordis.patch.yml", "README.md"],
+  "files": ["src", "test", "cordis.patch.yml", "README.md", "UPSTREAM.md"],
   "keywords": ["dsh", "deepseek-harness", "plugin", "preset", "authoring"],
   "license": "MIT"
 }

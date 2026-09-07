@@ -17,12 +17,14 @@ export const PRESET_PANEL_COMMANDS = Object.freeze({
 	TARGET_COPY: "target.copy",
 	DRAFT_EDIT: "draft.edit",
 	DRAFT_TOGGLE: "draft.toggle",
+	DRAFT_PUT_ROWS: "draft.putRows",
 	DRAFT_REFRESH_ANALYSIS: "draft.refreshAnalysis",
 	DRAFT_VALIDATE_MOUNT: "draft.validateMount",
 	DRAFT_APPLY: "draft.apply",
 	HISTORY_LOAD: "history.load",
 	HISTORY_RESTORE: "history.restore",
 	TEST_START: "test.start",
+	INVENTORY_LIST: "inventory.list",
 });
 
 function categoryId(title) {

@@ -104,8 +104,25 @@ function publicTarget(preset, editable, files) {
 	};
 }
 
+/**
+ * Normalize one plugin-inventory entry to the stable panel wire form
+ * `{ entryId, moduleName, enabled, fiberPhase }`. Unknown or nameless entries
+ * are dropped rather than guessed at.
+ */
+function normalizeInventoryEntry(entry) {
+	if (!entry || typeof entry !== "object") return null;
+	const moduleName = typeof entry.moduleName === "string" ? entry.moduleName : "";
+	if (moduleName === "") return null;
+	return Object.freeze({
+		entryId: typeof entry.entryId === "string" ? entry.entryId : "",
+		moduleName,
+		enabled: entry.enabled === true,
+		fiberPhase: typeof entry.fiberPhase === "string" ? entry.fiberPhase : null,
+	});
+}
+
 /** Build the thin Host adapter over DSH's authoritative agentPresets service. */
-export function createHostAdapters(agentPresets) {
+export function createHostAdapters(agentPresets, { pluginInventory } = {}) {
 	if (!agentPresets || typeof agentPresets !== "object") throw new TypeError("agentPresets service is required");
 
 	function firstUserRoot() {
@@ -145,6 +162,15 @@ export function createHostAdapters(agentPresets) {
 		async listTargets() {
 			const presets = await agentPresets.list();
 			return await Promise.all(presets.map((preset) => resolvedTarget(preset.id)));
+		},
+		async listInventory() {
+			// The inventory is a read-only roster fact: it enters at the Host
+			// adapter layer and never in the browser. Absent service ⇒ empty
+			// roster; the row editor stays usable with free-text package names.
+			if (!pluginInventory || typeof pluginInventory.list !== "function") return [];
+			const value = await pluginInventory.list();
+			const entries = Array.isArray(value) ? value : value?.entries ?? [];
+			return entries.map(normalizeInventoryEntry).filter((entry) => entry !== null);
 		},
 		async resolveTarget(id) {
 			return await resolvedTarget(id, true);

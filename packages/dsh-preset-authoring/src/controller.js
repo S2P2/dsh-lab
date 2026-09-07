@@ -1,6 +1,9 @@
 import { PRESET_DRAFT_COMMANDS as COMMAND } from "./domain.js";
 import { PRESET_PANEL_COMMANDS as PANEL, createPresetPanelPresenter } from "./presenter.js";
 import { diagnosticOf } from "./diagnostic.js";
+import { rowsFromEditor } from "./preset-editor-model.js";
+import { stringifyPresetYaml } from "./preset-yaml.js";
+import { PRESET_COMPOSITION_PATH } from "./studio-presenter.js";
 
 function guardOf(input) {
 	return {
@@ -67,6 +70,23 @@ export function createPresetAuthoringController({ service, host, testHandoff, pr
 				await service.dispatch({ type: COMMAND.REFRESH_ANALYSIS, ...currentGuard(service) });
 				break;
 			}
+			case PANEL.DRAFT_PUT_ROWS: {
+				// Generic row-editor write path: serialize the whole editor tree
+				// (upstream model) and persist it through the existing whole-file
+				// PUT_FILE draft command, then refresh analysis. Serialization
+				// errors abort before any draft mutation.
+				if (!Array.isArray(input.rows)) throw Object.assign(new TypeError("draft.putRows requires a rows array"), { code: "INVALID_COMMAND" });
+				const { rows, error } = rowsFromEditor(input.rows);
+				if (error === "needPackage") throw Object.assign(new Error("every composition row needs a package name"), { code: "PRESET_ROW_NEEDS_PACKAGE" });
+				if (error === "badConfig") throw Object.assign(new Error("a row config is not YAML the row editor can serialize"), { code: "PRESET_BAD_ROW_CONFIG" });
+				await service.dispatch({ type: COMMAND.PUT_FILE, ...guardOf(input), path: PRESET_COMPOSITION_PATH, content: stringifyPresetYaml(rows) });
+				await service.dispatch({ type: COMMAND.REFRESH_ANALYSIS, ...currentGuard(service) });
+				break;
+			}
+			case PANEL.INVENTORY_LIST:
+				// Read-only installed-package roster for the row editor's package
+				// selector; enters at the Host adapter layer, never the browser.
+				return { entries: typeof host.listInventory === "function" ? await host.listInventory() : [] };
 			case PANEL.DRAFT_REFRESH_ANALYSIS: await service.dispatch({ type: COMMAND.REFRESH_ANALYSIS, ...guardOf(input) }); break;
 			case PANEL.DRAFT_VALIDATE_MOUNT: await service.dispatch({ type: COMMAND.VALIDATE_MOUNT, ...guardOf(input) }); break;
 			case PANEL.DRAFT_APPLY: await service.dispatch({ type: COMMAND.APPLY, ...guardOf(input) }); break;

@@ -4,6 +4,7 @@ import { createHostAdapters } from "./host.js";
 import { createSemanticAdapters } from "./semantics.js";
 import { createPresetTree, fingerprintPresetTree } from "./tree.js";
 import { createPresetAuthoringController } from "./controller.js";
+import { createPresetStudioPresenter } from "./studio-presenter.js";
 
 function gitError(result) {
 	return Object.assign(new Error(result.diagnostic?.message ?? `Git ${result.operation} failed`), {
@@ -47,7 +48,7 @@ async function recoverCandidate({ locked, host, pathspec, head, input }) {
 
 /** Compose the complete Host-owned preset authoring flow; `panel: false` yields the backend without the panel controller. */
 export function createHostPresetAuthoring(agentPresets, options = {}) {
-	const host = options.host ?? createHostAdapters(agentPresets);
+	const host = options.host ?? createHostAdapters(agentPresets, { pluginInventory: options.pluginInventory });
 	const git = options.git ?? createLocalGitAdapter({ root: host.editableRoot(), ...options.gitOptions });
 	const semantics = createSemanticAdapters(options.semantics);
 	const adapters = {
@@ -121,6 +122,13 @@ export function createHostPresetAuthoring(agentPresets, options = {}) {
 	const service = createPresetDraftService(adapters);
 	const controller = options.panel === false
 		? null
-		: createPresetAuthoringController({ service, host, testHandoff: options.testHandoff, presenter: options.presenter });
+		: createPresetAuthoringController({
+			service,
+			host,
+			testHandoff: options.testHandoff,
+			// The shipped panel renders the adapted Preset Studio; the semantic
+			// presenter stays swappable through `options.presenter`.
+			presenter: options.presenter ?? createPresetStudioPresenter(),
+		});
 	return Object.freeze({ service, controller, host, git });
 }

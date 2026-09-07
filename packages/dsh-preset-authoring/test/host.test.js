@@ -52,6 +52,7 @@ test("default activation provides the complete shared service and a disposable e
 	const ctx = {
 		agentPresets: { roots: [{ path: root, trust: "user" }], async list() { return []; } },
 		get(name) {
+			if (name === "pluginInventory") return undefined; // optional probe; roster degrades to empty
 			assert.equal(name, "sessionController");
 			return { async inspect(id) { inspectedSession = id; return { meta: { agentPreset: "creator" } }; } };
 		},
