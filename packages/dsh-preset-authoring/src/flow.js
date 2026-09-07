@@ -45,7 +45,7 @@ async function recoverCandidate({ locked, host, pathspec, head, input }) {
 	}
 }
 
-/** Compose the complete Host-owned preset authoring flow. */
+/** Compose the complete Host-owned preset authoring flow; `panel: false` yields the backend without the panel controller. */
 export function createHostPresetAuthoring(agentPresets, options = {}) {
 	const host = options.host ?? createHostAdapters(agentPresets);
 	const git = options.git ?? createLocalGitAdapter({ root: host.editableRoot(), ...options.gitOptions });
@@ -119,6 +119,8 @@ export function createHostPresetAuthoring(agentPresets, options = {}) {
 		},
 	};
 	const service = createPresetDraftService(adapters);
-	const controller = createPresetAuthoringController({ service, host, testHandoff: options.testHandoff });
+	const controller = options.panel === false
+		? null
+		: createPresetAuthoringController({ service, host, testHandoff: options.testHandoff, presenter: options.presenter });
 	return Object.freeze({ service, controller, host, git });
 }

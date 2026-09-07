@@ -64,6 +64,17 @@ Mount and Apply re-read the saved target and reject with `STALE_PRESET_DRAFT` if
 
 The adapter uses `execFile` without a shell, never configures a remote, and never pushes. Root mutations are serialized across adapter instances for the same resolved root. Operational Git/filesystem failures return `{ status: "degraded", operation, diagnostic }`; unsafe target pathspecs reject as caller errors. This keeps Git history and recovery optional rather than coupling them to preset loading or drafting.
 
+## Presentation boundary
+
+The Host backend — shared draft service, DSH host adapters, Git recovery, semantic adapters — is usable with no presentation surface attached. `createHostPresetAuthoring(agentPresets, { panel: false })` composes only the backend and returns `{ service, controller: null, host, git }`; the complete draft lifecycle (open, edit, validate, apply, history, restore) runs through `service` alone.
+
+Every presentation surface consumes that backend through one replaceable presenter seam instead of domain or flow internals:
+
+- `PRESET_PANEL_COMMANDS` — the frozen panel command vocabulary the panel controller accepts.
+- `createPresetPanelPresenter()` — the stock semantic presenter. `project({ state, targets, sessionPresetId, test })` returns the immutable, path-free panel view-model documented below; `resolveEdit(rowId)` maps one projected control id back to the narrow Host-supported edit descriptor `{ operation: "setField" | "setEnabled", rowId, path? }` or `null`. Control registrations are rebuilt on every projection, so ids from an older view-model stop resolving.
+
+Any object providing `project()` and `resolveEdit()` can replace the stock presenter: pass it as `presenter` to `createPresetAuthoringController`, `createHostPresetAuthoring`, or the plugin's `apply(ctx, config)`. That injection point is the entire panel-replacement contract — controller, route, and backend behavior stay unchanged when the panel is swapped. The shipped Better Sidebar tab is one such consumer: it renders the presenter view-model served by the Host route and keeps no draft state of its own.
+
 ## Browser transport contract
 
 The Preset tab sends same-origin `POST /dsh-preset-authoring/api` requests with this envelope:
@@ -88,4 +99,4 @@ The route returns `{ ok: true, value: panelSnapshot }` or `{ ok: false, error: {
 | `history.restore` `{ historyRevision }` | Manually restore a retained revision |
 | `test.start` `{ targetId }` | Invoke a configured fresh-session handoff; otherwise return an explicit `launched: false` handoff payload without changing the current session |
 
-Every target-scoped command also requires `{ targetId, expectedRevision, expectedSourceFingerprint, expectedDraftFingerprint }` copied from one panel snapshot; mismatches reject with `PRESET_DRAFT_CONFLICT` before an adapter or filesystem side effect. `panelSnapshot` keeps roster/domain state Host-owned. Its browser-facing projection is `{ revision, sourceFingerprint, draftFingerprint, sessionPresetId, targets, target, stale, inspection: { categories }, semanticDiff, rawDiff, preflight, mount, apply, history, test }`. Categories contain rows with display metadata and, only where deterministic support exists, a `control` (`toggle`, `text`, `number`, or `select`). Unknown rows omit `control` and carry an explicit `metadata: "uninspected"` (or equivalent Host wording). Lifecycle slots use the domain's `{ status, value, diagnostic }` shape.
+Every target-scoped command also requires `{ targetId, expectedRevision, expectedSourceFingerprint, expectedDraftFingerprint }` copied from one panel snapshot; mismatches reject with `PRESET_DRAFT_CONFLICT` before an adapter or filesystem side effect. `panelSnapshot` keeps roster/domain state Host-owned; its shape is the presenter view-model projected by the presentation boundary above: `{ revision, sourceFingerprint, draftFingerprint, sessionPresetId, targets, target, stale, inspection: { categories }, semanticDiff, rawDiff, preflight, mount, apply, history, test }`. Categories contain rows with display metadata and, only where deterministic support exists, a `control` (`toggle`, `text`, `number`, or `select`). Unknown rows omit `control` and carry an explicit `metadata: "uninspected"` (or equivalent Host wording). Lifecycle slots use the domain's `{ status, value, diagnostic }` shape.

@@ -24,6 +24,7 @@ export {
 	fingerprintPresetTree,
 } from "./tree.js";
 export { createLocalGitAdapter } from "./git.js";
+export { PRESET_PANEL_COMMANDS, createPresetPanelPresenter } from "./presenter.js";
 export { createPresetAuthoringController } from "./controller.js";
 export { createHostPresetAuthoring } from "./flow.js";
 export { createPresetAuthoringRoute, PRESET_AUTHORING_API_PATH } from "./route.js";
@@ -44,7 +45,7 @@ export function apply(ctx, config = {}) {
 		? (() => {
 			const host = config.adapters;
 			const service = createPresetDraftService(host);
-			return { host, service, controller: createPresetAuthoringController({ service, host }) };
+			return { host, service, controller: createPresetAuthoringController({ service, host, presenter: config.presenter }) };
 		})()
 		: createHostPresetAuthoring(ctx.agentPresets, config);
 	const dispose = ctx.provide(serviceName, flow.service);

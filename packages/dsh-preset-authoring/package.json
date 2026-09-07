@@ -9,6 +9,7 @@
     "./client": "./src/client.js",
     "./domain": "./src/domain.js",
     "./git": "./src/git.js",
+    "./presenter": "./src/presenter.js",
     "./semantics": "./src/semantics.js",
     "./package.json": "./package.json"
   },

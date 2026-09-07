@@ -2,6 +2,8 @@
  * Browser half: one profile-wide Preset tab contributed through Better
  * Sidebar's public client service. This hand-authored lazy-CJS bundle keeps
  * dsh-better-sidebar entirely optional: there are no type or runtime imports.
+ * It is one replaceable consumer of the presentation boundary and only ever
+ * renders the presenter view-model served by the Host panel route.
  */
 window.__ModuleLoader__.load({
 	id: "@s2p2/dsh-preset-authoring",
