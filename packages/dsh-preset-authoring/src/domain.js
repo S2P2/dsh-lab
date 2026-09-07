@@ -1,0 +1,325 @@
+import {
+	assertSafePresetPath,
+	createPresetTree,
+	decodePresetFile,
+	fingerprintPresetTree,
+} from "./tree.js";
+import { diagnosticOf } from "./diagnostic.js";
+
+export const PRESET_DRAFT_COMMANDS = Object.freeze({
+	SET_SESSION: "session.set",
+	OPEN_TARGET: "target.open",
+	PUT_FILE: "draft.putFile",
+	EDIT_SEMANTIC: "draft.editSemantic",
+	DELETE_FILE: "draft.deleteFile",
+	CHECK_SOURCE: "source.check",
+	REFRESH_ANALYSIS: "draft.refreshAnalysis",
+	VALIDATE_MOUNT: "draft.validateMount",
+	APPLY: "draft.apply",
+	LOAD_HISTORY: "history.load",
+	RESTORE_HISTORY: "history.restore",
+});
+
+const CHANNELS = ["inspection", "semanticDiff", "rawDiff", "preflight", "mount", "apply", "history"];
+
+function slot(status = "idle", value = null, diagnostic = null) {
+	return Object.freeze({ status, value, diagnostic });
+}
+
+function unavailable(name) {
+	return slot("unavailable", null, Object.freeze({ message: `${name} adapter is not configured` }));
+}
+
+function cleanChannels(adapters) {
+	return Object.fromEntries(CHANNELS.map((name) => [name, adapters[name] ? slot() : unavailable(name)]));
+}
+
+function invalidatedDraftChannels(adapters) {
+	return Object.fromEntries(
+		["inspection", "semanticDiff", "rawDiff", "preflight", "mount", "apply"]
+			.map((name) => [name, adapters[name] ? slot() : unavailable(name)]),
+	);
+}
+
+function freezeTarget(target) {
+	if (target === null || typeof target !== "object") throw new TypeError("target adapter returned no target");
+	if (typeof target.id !== "string" || target.id.length === 0) throw new TypeError("target id must be a non-empty string");
+	return Object.freeze({
+		id: target.id,
+		editable: target.editable === true,
+		...(target.revision === undefined ? {} : { revision: target.revision }),
+	});
+}
+
+function adapterInput(state) {
+	return Object.freeze({
+		sessionPresetId: state.sessionPresetId,
+		target: state.target,
+		source: Object.freeze({ fingerprint: state.sourceFingerprint, tree: state.sourceTree }),
+		draft: Object.freeze({ fingerprint: state.draftFingerprint, tree: state.draftTree }),
+	});
+}
+
+/**
+ * One Host-owned source of shared preset draft state.
+ *
+ * Adapters are deliberately narrow. `readTarget` is the only required seam;
+ * inspection, edit, semanticDiff, rawDiff, preflight, mount, apply, and history may arrive in
+ * later slices without changing the service or snapshot shape.
+ */
+export function createPresetDraftService(adapters = {}) {
+	let state = {
+		revision: 0,
+		sessionPresetId: null,
+		target: null,
+		sourceTree: null,
+		sourceFingerprint: null,
+		draftTree: null,
+		draftFingerprint: null,
+		stale: false,
+		...cleanChannels(adapters),
+	};
+	const listeners = new Set();
+	let queue = Promise.resolve();
+
+	function snapshot() {
+		return Object.freeze({
+			revision: state.revision,
+			sessionPresetId: state.sessionPresetId,
+			target: state.target,
+			source: state.sourceTree === null ? null : Object.freeze({
+				fingerprint: state.sourceFingerprint,
+				tree: state.sourceTree,
+			}),
+			draft: state.draftTree === null ? null : Object.freeze({
+				fingerprint: state.draftFingerprint,
+				tree: state.draftTree,
+			}),
+			stale: state.stale,
+			inspection: state.inspection,
+			semanticDiff: state.semanticDiff,
+			rawDiff: state.rawDiff,
+			preflight: state.preflight,
+			mount: state.mount,
+			apply: state.apply,
+			history: state.history,
+		});
+	}
+
+	function publish(patch) {
+		state = { ...state, ...patch, revision: state.revision + 1 };
+		const next = snapshot();
+		for (const listener of listeners) listener(next);
+		return next;
+	}
+
+	function requireDraft() {
+		if (state.target === null || state.draftTree === null) throw new Error("no preset target is open");
+	}
+
+	function requireEditableDraft() {
+		requireDraft();
+		if (!state.target.editable) {
+			const error = Object.assign(new Error("preset target is read-only"), { code: "READ_ONLY_PRESET_TARGET" });
+			throw error;
+		}
+	}
+
+	function guardTargetCommand(command) {
+		requireDraft();
+		const matches = command.targetId === state.target.id
+			&& command.expectedRevision === state.revision
+			&& command.expectedSourceFingerprint === state.sourceFingerprint
+			&& command.expectedDraftFingerprint === state.draftFingerprint;
+		if (matches) return;
+		throw Object.assign(new Error("preset draft changed; refresh and retry against the current snapshot"), {
+			code: "PRESET_DRAFT_CONFLICT",
+		});
+	}
+
+	const guardedCommands = new Set([
+		PRESET_DRAFT_COMMANDS.PUT_FILE,
+		PRESET_DRAFT_COMMANDS.EDIT_SEMANTIC,
+		PRESET_DRAFT_COMMANDS.DELETE_FILE,
+		PRESET_DRAFT_COMMANDS.CHECK_SOURCE,
+		PRESET_DRAFT_COMMANDS.REFRESH_ANALYSIS,
+		PRESET_DRAFT_COMMANDS.VALIDATE_MOUNT,
+		PRESET_DRAFT_COMMANDS.APPLY,
+		PRESET_DRAFT_COMMANDS.LOAD_HISTORY,
+		PRESET_DRAFT_COMMANDS.RESTORE_HISTORY,
+	]);
+
+	async function readTarget(targetId) {
+		if (typeof adapters.readTarget !== "function") throw new Error("readTarget adapter is not configured");
+		const loaded = await adapters.readTarget(targetId);
+		const target = freezeTarget({ ...loaded, id: loaded?.id ?? targetId });
+		if (target.id !== targetId) throw new Error("target adapter returned a different target id");
+		const tree = createPresetTree(loaded.files);
+		return { target, tree, fingerprint: fingerprintPresetTree(tree) };
+	}
+
+	async function checkSource() {
+		requireDraft();
+		const current = await readTarget(state.target.id);
+		const stale = current.fingerprint !== state.sourceFingerprint;
+		publish({ stale });
+		return stale;
+	}
+
+	async function runAdapter(channel) {
+		requireDraft();
+		const adapter = adapters[channel];
+		if (typeof adapter !== "function") {
+			publish({ [channel]: unavailable(channel) });
+			return snapshot();
+		}
+		publish({ [channel]: slot("running") });
+		try {
+			const value = await adapter(adapterInput(state));
+			return publish({ [channel]: slot("ready", value) });
+		} catch (error) {
+			publish({ [channel]: slot("failed", null, diagnosticOf(error)) });
+			throw error;
+		}
+	}
+
+	function putDraftFile(pathValue, content) {
+		const path = assertSafePresetPath(pathValue);
+		const files = state.draftTree
+			.filter((file) => file.path !== path)
+			.map((file) => ({ path: file.path, content: decodePresetFile(file) }));
+		files.push({ path, content });
+		const tree = createPresetTree(files);
+		return publish({
+			draftTree: tree,
+			draftFingerprint: fingerprintPresetTree(tree),
+			...invalidatedDraftChannels(adapters),
+		});
+	}
+
+	async function executeCommand(command) {
+		if (command === null || typeof command !== "object") throw new TypeError("command must be an object");
+		if (guardedCommands.has(command.type)) guardTargetCommand(command);
+		switch (command.type) {
+			case PRESET_DRAFT_COMMANDS.SET_SESSION:
+				return publish({ sessionPresetId: command.presetId ?? null });
+			case PRESET_DRAFT_COMMANDS.OPEN_TARGET: {
+				if (typeof command.targetId !== "string" || command.targetId.length === 0) {
+					throw new TypeError("targetId must be a non-empty string");
+				}
+				const loaded = await readTarget(command.targetId);
+				return publish({
+					target: loaded.target,
+					sourceTree: loaded.tree,
+					sourceFingerprint: loaded.fingerprint,
+					draftTree: loaded.tree,
+					draftFingerprint: loaded.fingerprint,
+					stale: false,
+					...cleanChannels(adapters),
+				});
+			}
+			case PRESET_DRAFT_COMMANDS.PUT_FILE:
+				requireEditableDraft();
+				return putDraftFile(command.path, command.content);
+			case PRESET_DRAFT_COMMANDS.EDIT_SEMANTIC: {
+				requireEditableDraft();
+				if (typeof adapters.edit !== "function") {
+					throw Object.assign(new Error("semantic edit adapter is not configured"), { code: "SEMANTIC_EDIT_UNAVAILABLE" });
+				}
+				const edit = await adapters.edit(adapterInput(state), command);
+				if (edit === null || typeof edit !== "object") throw new TypeError("semantic edit adapter returned no file edit");
+				return putDraftFile(edit.path, edit.content);
+			}
+			case PRESET_DRAFT_COMMANDS.DELETE_FILE: {
+				requireEditableDraft();
+				const path = assertSafePresetPath(command.path);
+				if (!state.draftTree.some((file) => file.path === path)) return snapshot();
+				const tree = createPresetTree(state.draftTree
+					.filter((file) => file.path !== path)
+					.map((file) => ({ path: file.path, content: decodePresetFile(file) })));
+				return publish({
+					draftTree: tree,
+					draftFingerprint: fingerprintPresetTree(tree),
+					...invalidatedDraftChannels(adapters),
+				});
+			}
+			case PRESET_DRAFT_COMMANDS.CHECK_SOURCE:
+				await checkSource();
+				return snapshot();
+			case PRESET_DRAFT_COMMANDS.REFRESH_ANALYSIS:
+				for (const channel of ["inspection", "semanticDiff", "rawDiff", "preflight"]) await runAdapter(channel);
+				return snapshot();
+			case PRESET_DRAFT_COMMANDS.VALIDATE_MOUNT:
+				if (await checkSource()) {
+					const error = Object.assign(new Error("preset draft is stale"), { code: "STALE_PRESET_DRAFT" });
+					publish({ mount: slot("blocked", null, diagnosticOf(error)) });
+					throw error;
+				}
+				return runAdapter("mount");
+			case PRESET_DRAFT_COMMANDS.APPLY: {
+				requireEditableDraft();
+				if (await checkSource()) {
+					const error = Object.assign(new Error("preset draft is stale"), { code: "STALE_PRESET_DRAFT" });
+					publish({ apply: slot("blocked", null, diagnosticOf(error)) });
+					throw error;
+				}
+				const candidateTree = state.draftTree;
+				const candidateFingerprint = state.draftFingerprint;
+				await runAdapter("apply");
+				if (state.apply.value?.saved !== true) return snapshot();
+				const saved = await readTarget(state.target.id);
+				if (saved.fingerprint !== candidateFingerprint) throw new Error("applied target does not match the candidate");
+				return publish({
+					target: saved.target,
+					sourceTree: candidateTree,
+					sourceFingerprint: candidateFingerprint,
+					draftTree: candidateTree,
+					draftFingerprint: candidateFingerprint,
+					stale: false,
+				});
+			}
+			case PRESET_DRAFT_COMMANDS.LOAD_HISTORY:
+				return runAdapter("history");
+			case PRESET_DRAFT_COMMANDS.RESTORE_HISTORY: {
+				requireEditableDraft();
+				if (typeof adapters.restoreHistory !== "function") throw Object.assign(new Error("history restore adapter is not configured"), { code: "HISTORY_RESTORE_UNAVAILABLE" });
+				publish({ history: slot("running") });
+				try {
+					const value = await adapters.restoreHistory(adapterInput(state), command.revision);
+					const saved = await readTarget(state.target.id);
+					return publish({
+						target: saved.target,
+						sourceTree: saved.tree,
+						sourceFingerprint: saved.fingerprint,
+						draftTree: saved.tree,
+						draftFingerprint: saved.fingerprint,
+						stale: false,
+						history: slot("ready", value),
+						...invalidatedDraftChannels(adapters),
+					});
+				} catch (error) {
+					publish({ history: slot("failed", null, diagnosticOf(error)) });
+					throw error;
+				}
+			}
+			default:
+				throw new TypeError(`unknown preset draft command: ${JSON.stringify(command.type)}`);
+		}
+	}
+
+	function dispatch(command) {
+		const result = queue.then(() => executeCommand(command));
+		queue = result.catch(() => {});
+		return result;
+	}
+
+	return {
+		dispatch,
+		getSnapshot: snapshot,
+		subscribe(listener) {
+			if (typeof listener !== "function") throw new TypeError("listener must be a function");
+			listeners.add(listener);
+			return () => listeners.delete(listener);
+		},
+	};
+}
