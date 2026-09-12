@@ -27,6 +27,8 @@ Custom Agent presets live under [`presets/`](presets/), one immediate child dire
 
 The first scaffold is [`presets/writing`](presets/writing): a deliberately small writing-focused Agent composition with file/search, web, questions, and preset-local Skills, but no shell, coding workflows, or subagents.
 
+[`presets/standard-lean`](presets/standard-lean) is a snapshot copy of the shipped `standard` preset with Plan mode, Workflow, and Ralph removed and a compact `complete: true` persona as the whole system prompt; see its README for the upgrade-drift caveat.
+
 ## Install (once packages publish)
 
 ```sh
