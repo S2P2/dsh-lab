@@ -60,12 +60,14 @@ test("pass-through: unknown synthetic and MCP-shaped tools are the identical ref
   }
 });
 
-test("pass-through: every non-bash stock tool keeps its identical reference", () => {
+test("pass-through: stock-shaped tools absent from the map keep their identical references", () => {
+  // The full curated map covers every fixture name, so pass-through is
+  // exercised through renamed copies: same schemas, names the map lacks.
   const tools = loadStockTools();
-  const projected = projectTools(tools, descriptionMap);
-  for (let i = 0; i < tools.length; i += 1) {
-    if (tools[i].name === "bash") continue;
-    assert.strictEqual(projected[i], tools[i], tools[i].name);
+  const renamed = tools.map((tool) => ({ ...tool, name: `${tool.name}__unmapped` }));
+  const projected = projectTools(renamed, descriptionMap);
+  for (let i = 0; i < renamed.length; i += 1) {
+    assert.strictEqual(projected[i], renamed[i], renamed[i].name);
   }
 });
 
@@ -82,10 +84,6 @@ test("purity: the input catalog is never mutated", () => {
   const before = JSON.stringify(tools);
   projectTools(tools, descriptionMap);
   assert.equal(JSON.stringify(tools), before);
-});
-
-test("tracer scope: the curated map contains exactly the bash entry", () => {
-  assert.deepEqual(Object.keys(descriptionMap), ["bash"]);
 });
 
 test("compression: bash description characters drop by at least a third, floored above over-trimming", () => {
