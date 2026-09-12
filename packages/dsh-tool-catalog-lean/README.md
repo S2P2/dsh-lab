@@ -25,10 +25,17 @@ strips every description from original and projected catalogs and asserts
 deep equality, pass-through and determinism checks, config-surface tests
 (enabled/overrides/diagnostics through the public seam), and an integration
 test that mounts the listener through a real `@deepseek-ai/cordis`
-waterfall when one is importable (see `test/helpers.js` for the lookup,
-override with `DSH_TEST_CORDIS_ENTRY=/path/to/cordis/lib/index.js`),
+waterfall when one is importable (see `test/helpers.js` for the portable
+lookup — env override, resolution from the checkout, then the
+`~/.npm/_npx` cache; override with
+`DSH_TEST_CORDIS_ENTRY=/path/to/cordis/lib/index.js`),
 falling back to a faithful replica of the cordis waterfall contract
-otherwise.
+otherwise — and, when `@deepseek-ai/dsh-system-prompt` is importable
+too, a composition test that starts the real SystemPrompt service with a
+fake tool provider and asserts on what `ctx.systemPrompt.assemble()`
+delivers. When a real module cannot be resolved, the tests say so
+(skip-with-reason or a diagnostic line) instead of passing as if the
+real seam ran.
 
 ## How it works
 
@@ -38,8 +45,7 @@ When the system prompt is assembled, it replaces `assembly.tools` with a
 projection through a curated description map keyed by tool name:
 
 - the tool-level `description`, and
-- every `description` string found recursively inside `parameters`
-  (and `output_schema` when present),
+- every `description` string found recursively inside `parameters`,
 
 are swapped for curated, semantically faithful short forms. Everything else
 passes through **by construction** — names, types, `required` arrays, enums,
@@ -93,7 +99,7 @@ same `id` sets `config` on the bundle-inserted entry):
 
     # 3. Diagnostics — default false. When true, one log line per assembly
     #    through the host logger, e.g.
-    #    `tool-catalog-lean: 23 tools, 21062 -> 14336 chars`.
+    #    `tool-catalog-lean: 23 tools, 21062 -> 14440 chars`.
     #    Never alters the delivered catalog.
     diagnostics: false
 ```
@@ -117,14 +123,14 @@ analysis):
 
 | metric | stock | curated | reduction |
 | --- | ---: | ---: | ---: |
-| catalog, compact JSON | 21,062 | 14,336 | −32% |
-| description chars | 14,977 | 8,279 | −45% |
+| catalog, compact JSON | 21,062 | 14,440 | −31% |
+| description chars | 14,977 | 8,383 | −44% |
 
 Per tool (description chars, stock → curated):
 
 | tool | stock | curated | |
 | --- | ---: | ---: | ---: |
-| bash | 2,717 | 1,457 | −46% |
+| bash | 2,717 | 1,561 | −43% |
 | subagent_fork | 1,217 | 529 | −57% |
 | subagent | 1,189 | 539 | −55% |
 | list_agents | 1,187 | 582 | −51% |
@@ -149,7 +155,7 @@ Per tool (description chars, stock → curated):
 | job_list | 85 | 68 | −20% |
 
 Cuts concentrate on the five largest definitions (bash, subagent_fork,
-subagent, list_agents, todo_write: −46…−57%), per spec #77's priority; tools
+subagent, list_agents, todo_write: −43…−57%), per spec #77's priority; tools
 whose stock text is already terse (read, web_fetch, job_list, get_goal) are
 compressed lightly on purpose.
 

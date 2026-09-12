@@ -6,11 +6,10 @@
  *   - `parameters`: a replacement tree mirroring the JSON-schema shape of
  *     `parameters`. Under `properties`, a plain string replaces that
  *     property node's `description`; a plain object is a nested
- *     replacement node (with its own `description`/`properties`/`items`)
- *     for properties that are themselves schemas. Schema nodes without a
- *     curated `description` keep their stock string;
- *   - `output_schema`: same replacement-tree shape, applied to
- *     `output_schema` when the tool schema has one.
+ *     replacement node (with its own `description`/`properties`/
+ *     object-form `items`) for properties that are themselves schemas.
+ *     Schema nodes without a curated `description` keep their stock
+ *     string;
  *
  * A replacement is applied only where the stock schema already has a
  * string `description` — the transform never adds fields, so unchanged
@@ -62,7 +61,7 @@ export const descriptionMap = {
 
   bash: {
     description:
-      "Execute a bash command (`bash -c`) and return stdout/stderr. Each call runs in a fresh shell — no state (cwd, variables, functions) persists; pass `workdir` instead of `cd`. Non-zero exits are reported as `[exit code: N]`. Long output is truncated to its tail; the full output is saved to a file whose path is reported. A file-sandbox denial is reported as `[sandbox: file access denied under <mode> mode]` — a policy denial, not a bug; do not retry another way. When a denial is real and a wider mode would let it succeed, retry the exact same command once with `sandbox_permissions` (narrowest wider mode) plus a one-sentence `justification`; never escalate speculatively. If approvals are disabled or the retry is rejected, the denial is final. For long-running commands set `run_in_background: true`: the call returns a job id immediately; collect with `job_output`, stop with `job_kill`.",
+      "Execute a bash command (`bash -c`) and return stdout/stderr. Each call runs in a fresh shell — no state (cwd, variables, functions) persists; pass `workdir` instead of `cd`. Non-zero exits are reported as `[exit code: N]`. Long output is truncated to its tail; the full output is saved to a file whose path is reported. A file-sandbox denial is reported as `[sandbox: file access denied under <mode> mode]` — a policy denial, not a bug. A denial is final for that command: do not retry another way; the one sanctioned escalation is the one-shot retry described next. When the denial is real and a wider mode would let it succeed, retry the exact same command once with `sandbox_permissions` (narrowest wider mode) plus a one-sentence `justification`; never escalate speculatively. If approvals are disabled or the retry is rejected, the denial stands. For long-running commands set `run_in_background: true`: the call returns a job id immediately; collect with `job_output`, stop with `job_kill`.",
     parameters: {
       properties: {
         description:
