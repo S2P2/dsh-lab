@@ -1,0 +1,33 @@
+{
+  "name": "@s2p2/dsh-tool-catalog-lean",
+  "version": "0.0.1",
+  "description": "Lean model-facing tool catalog for DSH: a host-side system-prompt/assemble listener that replaces stock tool descriptions with curated, semantically faithful short forms. Descriptions-only — names, types, required arrays, enums, and structure pass through untouched; unknown tools are delivered byte-identical.",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "files": [
+    "src",
+    "test",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "plugin",
+    "tool-catalog",
+    "system-prompt"
+  ],
+  "license": "MIT"
+}
