@@ -34,10 +34,7 @@
  *   - `diagnostics`: default `false`; only an explicit boolean `true`
  *     enables the one-per-assembly log line.
  */
-
-function isPlainObject(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+import { isPlainObject } from "./util.js";
 
 /**
  * Resolve the raw plugin-row config into normalized options. Pure: no
@@ -60,6 +57,8 @@ export function resolveConfig(config) {
  * it is never per-property merged into the curated entry it shadows).
  * Pure and deterministic; called once per `apply` with the resolved
  * overrides, so the merged map is stable for the plugin's lifetime.
+ * This function is the unit under test in `test/config.test.js`, which
+ * pins that whole-entry-replacement override semantic (#81).
  */
 export function mergeDescriptionMaps(curated, overrides) {
   return { ...curated, ...overrides };

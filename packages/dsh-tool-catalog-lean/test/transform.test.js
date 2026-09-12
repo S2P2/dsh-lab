@@ -71,6 +71,35 @@ test("pass-through: stock-shaped tools absent from the map keep their identical 
   }
 });
 
+test("pass-through: tuple-form items inside a curated tool's schema stay untouched", () => {
+  // The walker curates only object-form `items`; tuple (array-form) items
+  // are a shape no stock tool uses, so they must pass through untouched —
+  // the tool-level description still lands, the parameters subtree keeps
+  // its identical reference (and with it byte-identical descriptions).
+  const tool = {
+    name: "bash", // curated name, so the entry is looked up
+    description: "Stock-length bash description that the curated entry replaces.",
+    parameters: {
+      type: "object",
+      properties: {
+        pair: {
+          type: "array",
+          description: "Tuple property.",
+          items: [
+            { type: "string", description: "First element." },
+            { type: "number", description: "Second element." },
+          ],
+        },
+      },
+    },
+  };
+  const [projected] = projectTools([tool], descriptionMap);
+  assert.equal(projected.description, descriptionMap.bash.description);
+  assert.strictEqual(projected.parameters, tool.parameters);
+  assert.strictEqual(projected.parameters.properties.pair, tool.parameters.properties.pair);
+  assert.strictEqual(projected.parameters.properties.pair.items, tool.parameters.properties.pair.items);
+});
+
 test("determinism: two transforms of the same input produce identical output", () => {
   const tools = loadStockTools();
   const first = projectTools(tools, descriptionMap);

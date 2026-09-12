@@ -6,7 +6,7 @@
  * tool name (see ./map.js for the entry shape) and returns a new array
  * where curated tools carry replacement description strings — the
  * tool-level `description` plus every `description` string found
- * recursively inside `parameters` (and `output_schema` when present).
+ * recursively inside `parameters`.
  *
  * Guarantees, by construction:
  *   - descriptions-only: no other key is read-for-write; names, types,
@@ -14,20 +14,18 @@
  *     through untouched (tests strip every description and deep-compare);
  *   - byte-identical pass-through: tools absent from the map are returned
  *     as the same object reference; curated tools keep their original
- *     reference for any subtree without a replacement;
+ *     reference for any subtree without a replacement — the walker only
+ *     follows shapes it curates, so unknown nodes pass through untouched;
  *   - pure: inputs are never mutated, no environment reads, no clocks,
  *     no randomness — same input, identical output.
  */
-
-function isPlainObject(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+import { cowClone, isPlainObject } from "./util.js";
 
 /**
  * Rewrite description strings inside one schema node, guided by a
  * replacement tree shaped like the schema (`description`, `properties`,
- * `items`). In `properties`, a string value is shorthand for "replace
- * that property node's description"; a plain object is a nested
+ * object-form `items`). In `properties`, a string value is shorthand for
+ * "replace that property node's description"; a plain object is a nested
  * replacement node (for properties that are themselves schemas).
  * Copy-on-write: returns the original node reference when nothing below
  * it changes.
@@ -37,14 +35,12 @@ function rewriteSchemaNode(node, replacement) {
 
   let out = node;
 
-  const clone = () => (out === node ? { ...node } : out);
-
   if (
     typeof replacement.description === "string" &&
     typeof node.description === "string" &&
     node.description !== replacement.description
   ) {
-    out = clone();
+    out = cowClone(out, node);
     out.description = replacement.description;
   }
 
@@ -70,29 +66,16 @@ function rewriteSchemaNode(node, replacement) {
       if (projected !== child) changed = true;
     }
     if (changed) {
-      out = clone();
+      out = cowClone(out, node);
       out.properties = next;
     }
   }
 
-  if (isPlainObject(replacement.items) && node.items !== undefined && node.items !== null) {
-    if (Array.isArray(node.items)) {
-      let changed = false;
-      const next = node.items.map((child) => {
-        const projected = rewriteSchemaNode(child, replacement.items);
-        if (projected !== child) changed = true;
-        return projected;
-      });
-      if (changed) {
-        out = clone();
-        out.items = next;
-      }
-    } else {
-      const projected = rewriteSchemaNode(node.items, replacement.items);
-      if (projected !== node.items) {
-        out = clone();
-        out.items = projected;
-      }
+  if (isPlainObject(replacement.items) && isPlainObject(node.items)) {
+    const projected = rewriteSchemaNode(node.items, replacement.items);
+    if (projected !== node.items) {
+      out = cowClone(out, node);
+      out.items = projected;
     }
   }
 
@@ -104,30 +87,20 @@ function projectTool(tool, entry) {
 
   let out = tool;
 
-  const clone = () => (out === tool ? { ...tool } : out);
-
   if (
     typeof entry.description === "string" &&
     typeof tool.description === "string" &&
     tool.description !== entry.description
   ) {
-    out = clone();
+    out = cowClone(out, tool);
     out.description = entry.description;
   }
 
   if (isPlainObject(entry.parameters) && isPlainObject(tool.parameters)) {
     const projected = rewriteSchemaNode(tool.parameters, entry.parameters);
     if (projected !== tool.parameters) {
-      out = clone();
+      out = cowClone(out, tool);
       out.parameters = projected;
-    }
-  }
-
-  if (isPlainObject(entry.output_schema) && isPlainObject(tool.output_schema)) {
-    const projected = rewriteSchemaNode(tool.output_schema, entry.output_schema);
-    if (projected !== tool.output_schema) {
-      out = clone();
-      out.output_schema = projected;
     }
   }
 
