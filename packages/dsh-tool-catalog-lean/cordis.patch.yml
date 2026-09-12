@@ -1,0 +1,10 @@
+# Plugin rows contributed by @s2p2/dsh-tool-catalog-lean.
+# Consumed by a profile that lists this package in its bundles or via
+# `dsh plugin --profile <id> add @s2p2/dsh-tool-catalog-lean`.
+#
+# Host-side only: the loader entry registers a `system-prompt/assemble`
+# waterfall listener that rewrites stock tool descriptions at assembly
+# time. No client half, no slots, no new tools.
+- insert:
+    - id: dsh-tool-catalog-lean
+      name: '@s2p2/dsh-tool-catalog-lean'
