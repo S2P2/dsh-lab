@@ -110,8 +110,10 @@ test("seam (real cordis waterfall): same assertions through the installed @deeps
   assert.ok(deliveredBash.description.length < stockBash.description.length);
   assert.ok(deliveredBash.description.includes("[exit code: N]"));
   assert.deepEqual(stripDescriptions(delivered.tools), stripDescriptions(stock));
+  // Every tool is curated in the full map, so per-tool the check is
+  // structure-only: descriptions may differ, nothing else may.
   for (const tool of delivered.tools) {
-    if (tool.name === "bash") continue;
-    assert.strictEqual(tool, stock.find((entry) => entry.name === tool.name));
+    const original = stock.find((entry) => entry.name === tool.name);
+    assert.deepEqual(stripDescriptions(tool), stripDescriptions(original));
   }
 });

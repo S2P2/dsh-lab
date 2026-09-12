@@ -14,23 +14,18 @@ test("safety invariant: stripping every description yields deep-equal catalogs",
   assert.deepEqual(stripDescriptions(projected), stripDescriptions(tools));
 });
 
-test("bash-only effect: only the bash tool changes, and only its descriptions", () => {
+test("full-map effect: every stock tool is projected, and only its descriptions", () => {
   const tools = loadStockTools();
   const projected = projectTools(tools, descriptionMap);
   assert.equal(projected.length, tools.length);
   for (let i = 0; i < tools.length; i += 1) {
-    const isBash = tools[i].name === "bash";
-    if (isBash) {
-      assert.notStrictEqual(projected[i], tools[i]);
-      // Only descriptions differ: names, types, required, enums, structure hold.
-      assert.equal(projected[i].name, "bash");
-      assert.deepEqual(
-        Object.keys(stripDescriptions(projected[i])),
-        Object.keys(stripDescriptions(tools[i])),
-      );
-    } else {
-      assert.strictEqual(projected[i], tools[i], tools[i].name);
-    }
+    assert.notStrictEqual(projected[i], tools[i], tools[i].name);
+    // Only descriptions differ: names, types, required, enums, structure hold.
+    assert.equal(projected[i].name, tools[i].name);
+    assert.deepEqual(
+      Object.keys(stripDescriptions(projected[i])),
+      Object.keys(stripDescriptions(tools[i])),
+    );
   }
 });
 
