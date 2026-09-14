@@ -37,7 +37,7 @@ test('apply registers exactly one provider with the router id', () => {
   assert.equal(ctx.registered[0].id, 'web-search-router')
   assert.equal(ctx.registered[0].available(), true)
   assert.equal(name, 'dsh-web-search-router')
-  assert.deepEqual(inject, ['web'])
+  assert.deepEqual(inject, ['web', 'credentials'])
 })
 
 test('registered provider serves web_search end-to-end through the DDG hop', async () => {
@@ -93,4 +93,55 @@ test('caller cancellation propagates through the registered provider', async () 
     assert.equal(error.code, 'WEB_ABORTED')
     return true
   })
+})
+
+const EXA_JSON = {
+  results: [{ url: 'https://example.com/exa-wired', title: 'Exa result', highlights: ['served by exa'] }],
+}
+
+test('a resolving credentials seam serves through the exa hop', async () => {
+  const ctx = fakeCtx()
+  ctx.credentials = {
+    resolve: async (reference) => (reference === 'EXA_API_KEY' ? { value: 'wired-exa-key' } : undefined),
+  }
+  const calls = []
+  apply(ctx, {}, {
+    fetchImpl: async (url) => {
+      calls.push(String(url))
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => undefined },
+        json: async () => EXA_JSON,
+      }
+    },
+  })
+  const provider = ctx.registered[0]
+  const result = await provider.search({ query: 'keyed tracer', maxResults: 5 })
+  assert.deepEqual(calls, ['https://api.exa.ai/search'], 'exa is first in the chain and serves')
+  assert.equal(result.sources[0].url, 'https://example.com/exa-wired')
+  assert.equal(result.sources[0].title, 'Exa result')
+  assert.equal(result.truncated, false)
+})
+
+test('an unresolvable credentials seam skips both keyed hops into duckduckgo', async () => {
+  const ctx = fakeCtx()
+  ctx.credentials = { resolve: async () => undefined }
+  const calls = []
+  apply(ctx, {}, {
+    fetchImpl: async (url) => {
+      calls.push(String(url))
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => undefined },
+        text: async () => DDG_PAGE,
+      }
+    },
+  })
+  const provider = ctx.registered[0]
+  const result = await provider.search({ query: 'q' })
+  assert.deepEqual(calls, ['https://html.duckduckgo.com/html/?q=q'], 'keyed hops made zero network attempts')
+  assert.equal(result.sources[0].url, 'https://example.com/wired')
+  assert.equal(result.sources[0].title, 'Wired result')
 })

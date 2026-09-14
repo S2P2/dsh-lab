@@ -18,17 +18,18 @@ import { createDefaultAdapters } from './adapters/index.js'
 
 export const name = 'dsh-web-search-router'
 
-/** Seam service keys. `credentials`/`settings` join when their tickets land. */
-export const inject = ['web']
+/** Seam service keys. `settings` joins when its ticket lands. */
+export const inject = ['web', 'credentials']
 
 /**
  * Cordis apply. `overrides` exists for hermetic wiring tests (fetch impl,
- * clock, scheduler injection); production callers omit it.
+ * clock, scheduler, credential injection); production callers omit it.
+ * Override entries win over the ctx-provided services.
  * @param {object} ctx @param {object} [_config] @param {object} [overrides]
  */
 export function apply(ctx, _config = {}, overrides = {}) {
   const router = new SearchRouter({
-    adapters: createDefaultAdapters(overrides),
+    adapters: createDefaultAdapters({ credentials: ctx?.credentials, ...overrides }),
     ...(overrides.attemptTimeoutMs !== undefined ? { attemptTimeoutMs: overrides.attemptTimeoutMs } : {}),
     ...(overrides.overallTimeoutMs !== undefined ? { overallTimeoutMs: overrides.overallTimeoutMs } : {}),
     ...(overrides.retry !== undefined ? { retry: overrides.retry } : {}),
