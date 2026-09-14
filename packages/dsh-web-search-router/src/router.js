@@ -53,6 +53,11 @@ export class SearchRouter {
   /**
    * @param {object} options
    * @param {object[]} [options.adapters] ordered adapter list
+   * @param {() => {backends?: {id: string, enabled: boolean}[], attemptTimeoutMs?: number, overallTimeoutMs?: number, maxRetries?: number}} [options.resolveConfiguration]
+   *   settings snapshot provider; called ONCE per search (mid-request settings
+   *   changes apply to the next search). Its backend order filters/reorders
+   *   the adapter chain (unknown ids and unimplemented hops drop out); its
+   *   knobs override the constructor values for that search.
    * @param {number} [options.attemptTimeoutMs] per-attempt deadline (default 5 s)
    * @param {number} [options.overallTimeoutMs] whole-search budget (default 15 s)
    * @param {{maxRetries?: number, baseMs?: number, jitterMs?: number, rand?: () => number}} [options.retry]
@@ -63,6 +68,7 @@ export class SearchRouter {
   constructor(options = {}) {
     const {
       adapters = [],
+      resolveConfiguration,
       attemptTimeoutMs = DEFAULT_ATTEMPT_TIMEOUT_MS,
       overallTimeoutMs = DEFAULT_OVERALL_TIMEOUT_MS,
       retry = {},
@@ -72,6 +78,8 @@ export class SearchRouter {
     } = options
     this.id = ROUTER_PROVIDER_ID
     this.#adapters = [...adapters]
+    this.#byId = new Map(this.#adapters.map((adapter) => [adapter.id, adapter]))
+    this.#resolveConfiguration = resolveConfiguration
     this.#attemptTimeoutMs = attemptTimeoutMs
     this.#overallTimeoutMs = overallTimeoutMs
     this.#maxRetries = retry.maxRetries ?? MAX_RETRIES_PER_BACKEND
@@ -82,6 +90,8 @@ export class SearchRouter {
   }
 
   #adapters
+  #byId
+  #resolveConfiguration
   #attemptTimeoutMs
   #overallTimeoutMs
   #maxRetries
@@ -100,12 +110,47 @@ export class SearchRouter {
     return this.#adapters.length
   }
 
+  /**
+   * Snapshot one search's chain + knobs: settings backend order filters and
+   * reorders the constructor adapters (enabled flag respected, unknown ids and
+   * not-yet-implemented hops drop out); knobs fall back to constructor values.
+   * A throwing snapshot provider degrades to constructor defaults — settings
+   * must never break a search.
+   */
+  #snapshotConfiguration() {
+    let configuration
+    if (this.#resolveConfiguration !== undefined) {
+      try {
+        configuration = this.#resolveConfiguration()
+      } catch {
+        configuration = undefined
+      }
+    }
+    if (configuration === null || typeof configuration !== 'object') configuration = {}
+    let chain = this.#adapters
+    if (Array.isArray(configuration.backends)) {
+      const byId = this.#byId
+      chain = configuration.backends
+        .filter((entry) => entry?.enabled !== false && byId.has(entry.id))
+        .map((entry) => byId.get(entry.id))
+    }
+    const knob = (value, fallback) =>
+      typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : fallback
+    return {
+      chain,
+      attemptTimeoutMs: knob(configuration.attemptTimeoutMs, this.#attemptTimeoutMs),
+      overallTimeoutMs: knob(configuration.overallTimeoutMs, this.#overallTimeoutMs),
+      maxRetries: configuration.maxRetries === undefined ? this.#maxRetries : Math.max(0, Math.floor(configuration.maxRetries)),
+    }
+  }
+
   /** @param {{query: string, maxResults?: number}} request @param {AbortSignal} [signal] */
   async search(request, signal) {
     if (signal?.aborted) throw new SearchAbortedError()
-    const deadlineAt = this.#now() + this.#overallTimeoutMs
+    const { chain, attemptTimeoutMs, overallTimeoutMs, maxRetries } = this.#snapshotConfiguration()
+    const deadlineAt = this.#now() + overallTimeoutMs
     const trail = []
-    for (const adapter of this.#adapters) {
+    for (const adapter of chain) {
       if (signal?.aborted) throw new SearchAbortedError()
       let status
       try {
@@ -127,7 +172,7 @@ export class SearchRouter {
           budgetExhausted = true
           break
         }
-        const outcome = await this.#attempt(adapter, request, signal, clampAttemptTimeoutMs(this.#attemptTimeoutMs, remainingMs))
+        const outcome = await this.#attempt(adapter, request, signal, clampAttemptTimeoutMs(attemptTimeoutMs, remainingMs))
         if (outcome.abortedCaller) {
           safeLog(this.#logger, 'info', 'web-search-router: aborted by caller during %s', adapter.id)
           throw new SearchAbortedError()
@@ -154,7 +199,7 @@ export class SearchRouter {
           at: this.#now(),
           ...(error.message ? { message: error.message } : {}),
         })
-        if (attempt >= this.#maxRetries || !isRetryable(error)) break
+        if (attempt >= maxRetries || !isRetryable(error)) break
         const delayMs = error.retryAfterMs !== undefined ? error.retryAfterMs : retryDelayMs(this.#retryDelay)
         // The retry delay must leave budget for the retry attempt itself;
         // a delay that no longer fits skips the retry (rogerdigital pattern).
