@@ -9,6 +9,7 @@ import { createTavilyAdapter } from './tavily.js'
 import { createCodexAdapter } from './codex.js'
 import { createDuckduckgoAdapter } from './duckduckgo.js'
 import { createZaiAdapter } from './zai.js'
+import { createSearxngAdapter } from './searxng.js'
 
 /** Stable backend ids in canonical default order: Exa → Tavily → Codex → z.ai → SearXNG → DuckDuckGo. */
 export const CANONICAL_ORDER = ['exa', 'tavily', 'codex', 'zai', 'searxng', 'duckduckgo']
@@ -45,6 +46,8 @@ export function createDefaultAdapters(deps = {}) {
     createTavilyAdapter(keyed),
     createCodexAdapter(deps), // wrapped dsh-codex-connect exports; module injected or dynamically imported
     createZaiAdapter(deps),
-    createDuckduckgoAdapter(deps), // #90 searxng appends here in canonical order
+    // One configured self-hosted URL (settings snapshot); absent thunk ⇒ needs-setup.
+    createSearxngAdapter({ ...deps, getSearxngBaseUrl: deps.getSearxngBaseUrl ?? (() => '') }),
+    createDuckduckgoAdapter(deps),
   ]
 }

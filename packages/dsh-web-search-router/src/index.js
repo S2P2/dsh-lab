@@ -38,8 +38,15 @@ export const inject = ['web', 'credentials', 'settings']
  */
 export function apply(ctx, _config = {}, overrides = {}) {
   let settingsHost
+  // Stable closure over the settings snapshot (shared reading position for
+  // the searxng base-URL getter; the host attaches a tick later — undefined ⇒ absent).
+  const effectiveSettings = () => settingsHost?.snapshot()
   const router = new SearchRouter({
-    adapters: createDefaultAdapters({ credentials: ctx?.credentials, ...overrides }),
+    adapters: createDefaultAdapters({
+      credentials: ctx?.credentials,
+      getSearxngBaseUrl: () => effectiveSettings()?.searxngBaseUrl,
+      ...overrides,
+    }),
     // Snapshot per search; the settings host may not be installed yet (async
     // schema import) — undefined snapshot ⇒ constructor defaults.
     resolveConfiguration: overrides.resolveConfiguration ?? (() => settingsHost?.snapshot()),
