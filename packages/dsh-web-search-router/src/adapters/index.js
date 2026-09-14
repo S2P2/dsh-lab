@@ -6,6 +6,7 @@
  */
 import { createExaAdapter } from './exa.js'
 import { createTavilyAdapter } from './tavily.js'
+import { createCodexAdapter } from './codex.js'
 import { createDuckduckgoAdapter } from './duckduckgo.js'
 
 /** Stable backend ids in canonical default order: Exa → Tavily → Codex → z.ai → SearXNG → DuckDuckGo. */
@@ -41,6 +42,7 @@ export function createDefaultAdapters(deps = {}) {
   return [
     createExaAdapter(keyed),
     createTavilyAdapter(keyed),
-    createDuckduckgoAdapter(deps), // #90/#93/#94 append adapters here in canonical order
+    createCodexAdapter(deps), // wrapped dsh-codex-connect exports; module injected or dynamically imported
+    createDuckduckgoAdapter(deps), // #90/#94 append adapters here in canonical order
   ]
 }
