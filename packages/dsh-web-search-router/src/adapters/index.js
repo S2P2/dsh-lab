@@ -5,6 +5,7 @@
  * @module
  */
 import { createDuckduckgoAdapter } from './duckduckgo.js'
+import { createZaiAdapter } from './zai.js'
 
 /** Stable backend ids in canonical default order: Exa → Tavily → Codex → z.ai → SearXNG → DuckDuckGo. */
 export const CANONICAL_ORDER = ['exa', 'tavily', 'codex', 'zai', 'searxng', 'duckduckgo']
@@ -17,6 +18,7 @@ export const CANONICAL_ORDER = ['exa', 'tavily', 'codex', 'zai', 'searxng', 'duc
  */
 export function createDefaultAdapters(deps = {}) {
   return [
-    createDuckduckgoAdapter(deps), // #89/#90/#93/#94 append adapters here in canonical order
+    createZaiAdapter(deps),
+    createDuckduckgoAdapter(deps), // #89/#90/#93 append adapters here in canonical order
   ]
 }
