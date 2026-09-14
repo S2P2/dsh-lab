@@ -130,14 +130,7 @@ export function apply(ctx, _config = {}, overrides = {}) {
   // health/cooldown snapshot, the bounded diagnostics ring, readiness facts,
   // and the canonical chain. Permitted metadata only — never a secret, never
   // a query, never result content. Degrades silently without webServer.
-  if (overrides.stateRouteTarget !== undefined) {
-    overrides.stateRouteTarget.read = async () => ({
-      health: router.healthSnapshot(),
-      diagnostics: router.diagnosticsSnapshot(),
-      readiness: await computeReadiness(ctx, effectiveSettings, overrides),
-      chain: [...CANONICAL_ORDER],
-    })
-  } else if (typeof ctx?.inject === 'function') {
+  if (typeof ctx?.inject === 'function') {
     ctx.inject(['webServer'], (host) => {
       host.effect(
         () =>
@@ -157,7 +150,7 @@ export function apply(ctx, _config = {}, overrides = {}) {
                 chain: [...CANONICAL_ORDER],
                 generatedAt: Date.now(),
               })
-              response.writeHead(200, { 'content-control': 'no-store', 'content-type': 'application/json', 'cache-control': 'no-store' })
+              response.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' })
               response.end(body)
             },
           }),

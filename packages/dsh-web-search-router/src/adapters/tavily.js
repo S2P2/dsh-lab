@@ -19,7 +19,7 @@
  * @module
  */
 import { AdapterError } from '../errors.js'
-import { readJsonResultsBody, translateFetchError, translateResponseStatus } from '../http.js'
+import { readJsonResultsBody, translateFetchError, translateResponseStatus, usableCredential } from '../http.js'
 import { normalizeResult } from '../normalize.js'
 
 export const TAVILY_SEARCH_URL = 'https://api.tavily.com/search'
@@ -29,11 +29,6 @@ export const TAVILY_KEY_REFERENCE = 'TAVILY_API_KEY'
 
 /** Tavily's server-side cap on `max_results` (PR #9's proven clamp). */
 const TAVILY_MAX_RESULTS_CAP = 20
-
-/** True for a usable resolved key: a non-empty string. Anything else is unconfigured. */
-function usableKey(key) {
-  return typeof key === 'string' && key.trim().length > 0
-}
 
 /** Map one Tavily result item to a raw source (pre-normalization; only url is required). */
 function mapTavilyResult(item) {
@@ -68,7 +63,7 @@ export function createTavilyAdapter(deps = {}) {
     /** @param {{query: string, maxResults?: number}} request @param {AbortSignal} attemptSignal */
     async search(request, attemptSignal) {
       const key = await resolveTavilyKey?.()
-      if (!usableKey(key)) {
+      if (!usableCredential(key)) {
         throw new AdapterError(`${id}: ${TAVILY_KEY_REFERENCE} not configured`, 'config')
       }
       const body = {

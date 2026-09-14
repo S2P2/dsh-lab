@@ -15,7 +15,7 @@
  * @module
  */
 import { AdapterError } from '../errors.js'
-import { readJsonResultsBody, translateFetchError, translateResponseStatus } from '../http.js'
+import { readJsonResultsBody, translateFetchError, translateResponseStatus, usableCredential } from '../http.js'
 import { normalizeResult } from '../normalize.js'
 
 export const EXA_SEARCH_URL = 'https://api.exa.ai/search'
@@ -23,11 +23,6 @@ const USER_AGENT = 'deepseek-harness/web-search-router'
 
 /** Exa's fixed credential reference (resolved through the credentials seam). */
 export const EXA_KEY_REFERENCE = 'EXA_API_KEY'
-
-/** True for a usable resolved key: a non-empty string. Anything else is unconfigured. */
-function usableKey(key) {
-  return typeof key === 'string' && key.trim().length > 0
-}
 
 /**
  * Map one Exa result item to a raw source (pre-normalization; normalizeResult
@@ -71,7 +66,7 @@ export function createExaAdapter(deps = {}) {
     /** @param {{query: string, maxResults?: number}} request @param {AbortSignal} attemptSignal */
     async search(request, attemptSignal) {
       const key = await resolveExaKey?.()
-      if (!usableKey(key)) {
+      if (!usableCredential(key)) {
         throw new AdapterError(`${id}: ${EXA_KEY_REFERENCE} not configured`, 'config')
       }
       const body = {

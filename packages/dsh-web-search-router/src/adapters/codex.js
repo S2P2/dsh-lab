@@ -37,23 +37,11 @@
  * @module
  */
 import { AdapterError, AdapterAbortError } from '../errors.js'
-import { isAbortLike } from '../http.js'
+import { isAbortLike, safeLog, TRANSIENT_UPSTREAM_STATUSES } from '../http.js'
 import { normalizeResult } from '../normalize.js'
 
 /** Production module resolver: the wrapped library, imported dynamically (never at module scope). */
 const importCodexConnectLibrary = () => import('dsh-codex-connect')
-
-/** Statuses the wrapped provider surfaces only through its message text; only these are transport-transient. */
-const TRANSIENT_UPSTREAM_STATUSES = new Set([502, 503, 504])
-
-/** Never-throw host logging (mirrors the router's safeLog; emitters are best-effort). */
-function safeLog(logger, level, format, ...args) {
-  try {
-    logger?.[level]?.(format, ...args)
-  } catch {
-    /* host logging must never break search */
-  }
-}
 
 /**
  * Translate a wrapped-provider failure into the closed failure vocabulary.

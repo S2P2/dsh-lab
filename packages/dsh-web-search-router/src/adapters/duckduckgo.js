@@ -109,7 +109,12 @@ export function createDuckduckgoAdapter(options = {}) {
         throw new AdapterError(`${id}: response body unreadable`, 'malformed', { cause: error })
       }
       if (isAntiBotChallenge(response.status, html)) {
-        throw new AdapterError(`${id}: rate-limited (anti-bot challenge)`, 'rate_limit')
+        const retryAfterMs = parseRetryAfterMs(response.headers?.get?.('retry-after'))
+        throw new AdapterError(
+          `${id}: rate-limited (anti-bot challenge)`,
+          'rate_limit',
+          retryAfterMs !== undefined ? { retryAfterMs } : {},
+        )
       }
       if (!response.ok) {
         const retryAfterMs = parseRetryAfterMs(response.headers?.get?.('retry-after'))

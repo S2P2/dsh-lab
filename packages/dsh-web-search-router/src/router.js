@@ -29,6 +29,7 @@ import {
   retryDelayMs,
   clampAttemptTimeoutMs,
 } from './policy.js'
+import { safeLog } from './http.js'
 import { createHealthStore, CREDENTIAL_REF_BACKENDS } from './health.js'
 import { createDiagnosticsRing, projectExecution } from './diagnostics.js'
 
@@ -36,15 +37,6 @@ export { DEFAULT_ATTEMPT_TIMEOUT_MS }
 
 /** Router provider id, selected by a profile's `web.searchProvider` pin. */
 export const ROUTER_PROVIDER_ID = 'web-search-router'
-
-/** Never-throw host logging (240xu pattern: emitters are best-effort). */
-function safeLog(logger, level, format, ...args) {
-  try {
-    logger?.[level]?.(format, ...args)
-  } catch {
-    /* host logging must never break search */
-  }
-}
 
 /**
  * The sequential router. Registered on `ctx.web` as the only search provider;

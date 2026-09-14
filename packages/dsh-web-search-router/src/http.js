@@ -49,7 +49,21 @@ export function translateFetchError(error, id) {
 }
 
 /** Statuses treated as transient transport failures (retry-worthy): only these. */
-const TRANSIENT_UPSTREAM_STATUSES = new Set([502, 503, 504])
+export const TRANSIENT_UPSTREAM_STATUSES = new Set([502, 503, 504])
+
+/** Never-throw host logging (240xu pattern: emitters are best-effort). */
+export function safeLog(logger, level, format, ...args) {
+  try {
+    logger?.[level]?.(format, ...args)
+  } catch {
+    /* host logging must never break search */
+  }
+}
+
+/** True for a usable resolved credential: a non-empty string. Anything else is unconfigured. */
+export function usableCredential(key) {
+  return typeof key === 'string' && key.trim().length > 0
+}
 
 /**
  * Translate a non-2xx keyed-REST response into a classified AdapterError:
