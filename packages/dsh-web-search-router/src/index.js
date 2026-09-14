@@ -21,10 +21,35 @@
  * @module
  */
 import { SearchRouter, ROUTER_PROVIDER_ID } from './router.js'
-import { createDefaultAdapters } from './adapters/index.js'
+import { createDefaultAdapters, CANONICAL_ORDER } from './adapters/index.js'
 import { createSettingsHost } from './settings.js'
 
 export const name = 'dsh-web-search-router'
+
+/** Fixed credential references the card offers to configure (no values, ever). */
+const KEYED_REFS = ['EXA_API_KEY', 'TAVILY_API_KEY', 'ZAI_API_KEY']
+
+/**
+ * Cheap local readiness facts for the card (no network probes): keyed hops
+ * are ready when their credential reference resolves as configured; SearXNG
+ * when a base URL is set; Codex when the wrapped library loads; DDG always.
+ */
+async function computeReadiness(ctx, effectiveSettings, overrides = {}) {
+  const describe = overrides.describeCredential ?? ctx?.credentials?.describe?.bind(ctx.credentials)
+  const readiness = { duckduckgo: true }
+  for (const reference of KEYED_REFS) {
+    try {
+      const info = await describe?.(reference)
+      readiness[reference === 'EXA_API_KEY' ? 'exa' : reference === 'TAVILY_API_KEY' ? 'tavily' : 'zai'] =
+        info?.configured === true
+    } catch {
+      readiness[reference === 'EXA_API_KEY' ? 'exa' : reference === 'TAVILY_API_KEY' ? 'tavily' : 'zai'] = false
+    }
+  }
+  readiness.searxng = typeof effectiveSettings()?.searxngBaseUrl === 'string' && effectiveSettings().searxngBaseUrl.length > 0
+  readiness.codex = true // library-availability is per-attempt; auth state is discovered per search
+  return readiness
+}
 
 /** Seam service keys. */
 export const inject = ['web', 'credentials', 'settings']
@@ -45,6 +70,7 @@ export function apply(ctx, _config = {}, overrides = {}) {
     adapters: createDefaultAdapters({
       credentials: ctx?.credentials,
       getSearxngBaseUrl: () => effectiveSettings()?.searxngBaseUrl,
+      ...(ctx?.logger !== undefined ? { logger: ctx.logger } : {}),
       ...overrides,
     }),
     // Snapshot per search; the settings host may not be installed yet (async
@@ -97,6 +123,46 @@ export function apply(ctx, _config = {}, overrides = {}) {
     ctx.inject(['settings'], (settingsCtx) => {
       settingsHost = host
       void host.install(installSettings(settingsCtx?.settings))
+    })
+  }
+
+  // Card data over a loopback-only route (the dsh-quota-bar pattern):
+  // health/cooldown snapshot, the bounded diagnostics ring, readiness facts,
+  // and the canonical chain. Permitted metadata only — never a secret, never
+  // a query, never result content. Degrades silently without webServer.
+  if (overrides.stateRouteTarget !== undefined) {
+    overrides.stateRouteTarget.read = async () => ({
+      health: router.healthSnapshot(),
+      diagnostics: router.diagnosticsSnapshot(),
+      readiness: await computeReadiness(ctx, effectiveSettings, overrides),
+      chain: [...CANONICAL_ORDER],
+    })
+  } else if (typeof ctx?.inject === 'function') {
+    ctx.inject(['webServer'], (host) => {
+      host.effect(
+        () =>
+          host.webServer.register({
+            kind: 'exact',
+            path: '/dsh-web-search-router/state',
+            handler: async (request, response) => {
+              if (request.method !== 'GET') {
+                response.writeHead(405, { allow: 'GET' })
+                response.end()
+                return
+              }
+              const body = JSON.stringify({
+                health: router.healthSnapshot(),
+                diagnostics: router.diagnosticsSnapshot(),
+                readiness: await computeReadiness(ctx, effectiveSettings),
+                chain: [...CANONICAL_ORDER],
+                generatedAt: Date.now(),
+              })
+              response.writeHead(200, { 'content-control': 'no-store', 'content-type': 'application/json', 'cache-control': 'no-store' })
+              response.end(body)
+            },
+          }),
+        'dsh-web-search-router: state route',
+      )
     })
   }
 
