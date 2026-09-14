@@ -29,6 +29,8 @@ import {
   retryDelayMs,
   clampAttemptTimeoutMs,
 } from './policy.js'
+import { createHealthStore, CREDENTIAL_REF_BACKENDS } from './health.js'
+import { createDiagnosticsRing, projectExecution } from './diagnostics.js'
 
 export { DEFAULT_ATTEMPT_TIMEOUT_MS }
 
@@ -64,6 +66,8 @@ export class SearchRouter {
    * @param {object} [options.logger] host logger (trail on exhaustion)
    * @param {() => number} [options.now] injectable clock
    * @param {{setTimeout: typeof setTimeout, clearTimeout: typeof clearTimeout}} [options.schedule] injectable scheduler
+   * @param {ReturnType<typeof createHealthStore>} [options.health] injectable health store (ticket #88)
+   * @param {ReturnType<typeof createDiagnosticsRing>} [options.diagnostics] injectable diagnostics ring
    */
   constructor(options = {}) {
     const {
@@ -75,6 +79,8 @@ export class SearchRouter {
       logger,
       now = () => Date.now(),
       schedule = { setTimeout, clearTimeout },
+      health,
+      diagnostics,
     } = options
     this.id = ROUTER_PROVIDER_ID
     this.#adapters = [...adapters]
@@ -87,6 +93,8 @@ export class SearchRouter {
     this.#logger = logger
     this.#now = now
     this.#schedule = schedule
+    this.#health = health ?? createHealthStore({ now })
+    this.#diagnostics = diagnostics ?? createDiagnosticsRing()
   }
 
   #adapters
@@ -99,6 +107,8 @@ export class SearchRouter {
   #logger
   #now
   #schedule
+  #health
+  #diagnostics
 
   /** Cheap local usability check for the seam (no network probes by contract). */
   available() {
@@ -108,6 +118,31 @@ export class SearchRouter {
   /** Number of adapters currently in the chain (for startup logging). */
   chainSize() {
     return this.#adapters.length
+  }
+
+  /** Settings changed: clear every backend's health (#91 wires the onChange hook here). */
+  noteSettingsChanged() {
+    this.#health.clearAll()
+  }
+
+  /**
+   * A credential reference changed (`credentials/reference-updated`): clear
+   * the affected backend's health so the next search re-attempts it.
+   * @param {string} reference e.g. `EXA_API_KEY`
+   */
+  noteCredentialUpdated(reference) {
+    const backend = CREDENTIAL_REF_BACKENDS.get(String(reference))
+    if (backend !== undefined) this.#health.clear(backend)
+  }
+
+  /** UI-facing health projection (#92 status card): cooling backends only. */
+  healthSnapshot() {
+    return this.#health.snapshot()
+  }
+
+  /** Diagnostics ring copy (oldest first); permitted metadata fields only. */
+  diagnosticsSnapshot() {
+    return this.#diagnostics.snapshot()
   }
 
   /**
@@ -149,67 +184,89 @@ export class SearchRouter {
     if (signal?.aborted) throw new SearchAbortedError()
     const { chain, attemptTimeoutMs, overallTimeoutMs, maxRetries } = this.#snapshotConfiguration()
     const deadlineAt = this.#now() + overallTimeoutMs
+    const startedAt = this.#now()
     const trail = []
-    for (const adapter of chain) {
-      if (signal?.aborted) throw new SearchAbortedError()
-      let status
-      try {
-        status = adapter.status?.() ?? { ok: true }
-        if (status && typeof status.then === 'function') status = await status
-      } catch (error) {
-        status = { ok: false, reason: `status check failed: ${error?.message ?? 'unknown'}` }
-      }
-      if (!status?.ok) {
-        trail.push({ backend: adapter.id, outcome: 'skipped', reason: status?.reason ?? 'unavailable' })
-        continue
-      }
-      let budgetExhausted = false
-      for (let attempt = 0; ; attempt++) {
+    try {
+      for (const adapter of chain) {
         if (signal?.aborted) throw new SearchAbortedError()
-        const remainingMs = deadlineAt - this.#now()
-        if (remainingMs <= 0) {
-          trail.push({ backend: adapter.id, outcome: 'skipped', reason: 'overall deadline exhausted' })
-          budgetExhausted = true
-          break
+        // Passive health gate: only attempts that START after a cooldown is
+        // recorded are affected; in-flight searches elsewhere finish untouched.
+        if (this.#health.isCooling(adapter.id)) {
+          trail.push({ backend: adapter.id, outcome: 'skipped', reason: 'cooling down' })
+          continue
         }
-        const outcome = await this.#attempt(adapter, request, signal, clampAttemptTimeoutMs(attemptTimeoutMs, remainingMs))
-        if (outcome.abortedCaller) {
-          safeLog(this.#logger, 'info', 'web-search-router: aborted by caller during %s', adapter.id)
-          throw new SearchAbortedError()
+        let status
+        try {
+          status = adapter.status?.() ?? { ok: true }
+          if (status && typeof status.then === 'function') status = await status
+        } catch (error) {
+          status = { ok: false, reason: `status check failed: ${error?.message ?? 'unknown'}` }
         }
-        if (outcome.ok) {
+        if (!status?.ok) {
+          trail.push({ backend: adapter.id, outcome: 'skipped', reason: status?.reason ?? 'unavailable' })
+          continue
+        }
+        let budgetExhausted = false
+        for (let attempt = 0; ; attempt++) {
+          if (signal?.aborted) throw new SearchAbortedError()
+          const remainingMs = deadlineAt - this.#now()
+          if (remainingMs <= 0) {
+            trail.push({ backend: adapter.id, outcome: 'skipped', reason: 'overall deadline exhausted' })
+            budgetExhausted = true
+            break
+          }
+          const outcome = await this.#attempt(adapter, request, signal, clampAttemptTimeoutMs(attemptTimeoutMs, remainingMs))
+          if (outcome.abortedCaller) {
+            safeLog(this.#logger, 'info', 'web-search-router: aborted by caller during %s', adapter.id)
+            throw new SearchAbortedError()
+          }
+          if (outcome.ok) {
+            trail.push({
+              backend: adapter.id,
+              outcome: 'served',
+              latencyMs: outcome.latencyMs,
+              retries: attempt,
+              at: this.#now(),
+            })
+            // Success clears transient health state for the serving backend.
+            this.#health.clear(adapter.id)
+            this.#diagnostics.record(projectExecution({ startedAt, outcome: 'served', trail }))
+            safeLog(this.#logger, 'debug', 'web-search-router: served by %s after %dms', adapter.id, outcome.latencyMs)
+            return outcome.result
+          }
+          const error = outcome.error
+          this.#health.recordFailure(adapter.id, error)
+          const coolingNow = this.#health.isCooling(adapter.id)
           trail.push({
             backend: adapter.id,
-            outcome: 'served',
+            outcome: 'failed',
+            failureClass: error.failureClass,
+            ...(error.retryAfterMs !== undefined ? { retryAfterMs: error.retryAfterMs } : {}),
+            ...(coolingNow ? { cooldownUntil: this.#health.snapshot().find((entry) => entry.id === adapter.id)?.cooldownUntil ?? Number.POSITIVE_INFINITY } : {}),
             latencyMs: outcome.latencyMs,
             retries: attempt,
             at: this.#now(),
+            ...(error.message ? { message: error.message } : {}),
           })
-          safeLog(this.#logger, 'debug', 'web-search-router: served by %s after %dms', adapter.id, outcome.latencyMs)
-          return outcome.result
+          if (attempt >= maxRetries || !isRetryable(error)) break
+          const delayMs = error.retryAfterMs !== undefined ? error.retryAfterMs : retryDelayMs(this.#retryDelay)
+          // The retry delay must leave budget for the retry attempt itself;
+          // a delay that no longer fits skips the retry (rogerdigital pattern).
+          if (delayMs > 0 && deadlineAt - this.#now() - delayMs <= 0) break
+          if (delayMs > 0) await this.#wait(delayMs, signal)
         }
-        const error = outcome.error
-        trail.push({
-          backend: adapter.id,
-          outcome: 'failed',
-          failureClass: error.failureClass,
-          ...(error.retryAfterMs !== undefined ? { retryAfterMs: error.retryAfterMs } : {}),
-          latencyMs: outcome.latencyMs,
-          retries: attempt,
-          at: this.#now(),
-          ...(error.message ? { message: error.message } : {}),
-        })
-        if (attempt >= maxRetries || !isRetryable(error)) break
-        const delayMs = error.retryAfterMs !== undefined ? error.retryAfterMs : retryDelayMs(this.#retryDelay)
-        // The retry delay must leave budget for the retry attempt itself;
-        // a delay that no longer fits skips the retry (rogerdigital pattern).
-        if (delayMs > 0 && deadlineAt - this.#now() - delayMs <= 0) break
-        if (delayMs > 0) await this.#wait(delayMs, signal)
+        if (budgetExhausted) break
       }
-      if (budgetExhausted) break
+      safeLog(this.#logger, 'info', 'web-search-router: chain exhausted: %j', trail)
+      this.#diagnostics.record(projectExecution({ startedAt, outcome: 'exhausted', trail }))
+      throw new ChainExhaustedError(trail)
+    } catch (error) {
+      // Caller aborts are recorded as executions but never as backend failures.
+      if (error instanceof SearchAbortedError) {
+        this.#diagnostics.record(projectExecution({ startedAt, outcome: 'aborted', trail }))
+      }
+      throw error
     }
-    safeLog(this.#logger, 'info', 'web-search-router: chain exhausted: %j', trail)
-    throw new ChainExhaustedError(trail)
   }
 
   /**

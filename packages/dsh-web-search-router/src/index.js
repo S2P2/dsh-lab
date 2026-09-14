@@ -48,6 +48,8 @@ export function apply(ctx, _config = {}, overrides = {}) {
     ...(overrides.retry !== undefined ? { retry: overrides.retry } : {}),
     ...(overrides.schedule !== undefined ? { schedule: overrides.schedule } : {}),
     ...(overrides.now !== undefined ? { now: overrides.now } : {}),
+    ...(overrides.health !== undefined ? { health: overrides.health } : {}),
+    ...(overrides.diagnostics !== undefined ? { diagnostics: overrides.diagnostics } : {}),
     ...(ctx?.logger !== undefined ? { logger: ctx.logger } : {}),
   })
   ctx.web.registerSearchProvider({
@@ -55,6 +57,20 @@ export function apply(ctx, _config = {}, overrides = {}) {
     available: () => router.available(),
     search: (request, signal) => router.search(request, signal),
   })
+
+  // Normal user credential edits surface as `credentials/reference-updated`
+  // (per-reference event on the credential service, fanned out onto ctx) and
+  // clear the affected backend's health so the next search re-attempts it.
+  // Ambient process-env changes are NOT emitted by DSH and need a restart.
+  if (overrides.onCredentialReferenceUpdated !== undefined) {
+    overrides.onCredentialReferenceUpdated((reference) => router.noteCredentialUpdated(reference))
+  } else if (typeof ctx?.on === 'function') {
+    try {
+      ctx.on('credentials/reference-updated', (reference) => router.noteCredentialUpdated(reference))
+    } catch (error) {
+      ctx.logger?.warn?.('dsh-web-search-router: credential event subscription failed: %s', error?.message)
+    }
+  }
 
   const host = createSettingsHost({
     entry: _config,
