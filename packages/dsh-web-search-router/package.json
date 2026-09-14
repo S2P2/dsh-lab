@@ -1,0 +1,44 @@
+{
+  "name": "@s2p2/dsh-web-search-router",
+  "version": "0.1.0",
+  "description": "Multi-backend web search router for DSH: one stock web_search tool over an ordered fallback chain (Exa, Tavily, Codex, z.ai, SearXNG, DuckDuckGo) with failure classification, deadline budgets, passive health, and a settings card.",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "files": ["src", "test", "cordis.patch.yml", "README.md"],
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "plugin",
+    "web-search",
+    "router",
+    "fallback",
+    "exa",
+    "tavily",
+    "codex",
+    "zai",
+    "searxng",
+    "duckduckgo"
+  ],
+  "license": "MIT",
+  "engines": { "node": ">=20.3" },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.2",
+    "@deepseek-ai/dsh-web": "0.1.2-rc.1 || 0.1.5-alpha.1 || 0.1.5-rc.1 || 0.1.5-rc.2"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": { "optional": true },
+    "@deepseek-ai/dsh-web": { "optional": true }
+  }
+}
