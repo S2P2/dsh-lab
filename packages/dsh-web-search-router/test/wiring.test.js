@@ -37,7 +37,7 @@ test('apply registers exactly one provider with the router id', () => {
   assert.equal(ctx.registered[0].id, 'web-search-router')
   assert.equal(ctx.registered[0].available(), true)
   assert.equal(name, 'dsh-web-search-router')
-  assert.deepEqual(inject, ['web', 'credentials'])
+  assert.deepEqual(inject, ['web', 'credentials', 'settings'])
 })
 
 test('registered provider serves web_search end-to-end through the DDG hop', async () => {
