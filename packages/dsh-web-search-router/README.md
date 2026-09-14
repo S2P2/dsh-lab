@@ -26,7 +26,8 @@ Tracer-bullet stage (ticket #86): router core + keyless DuckDuckGo hop. Failure 
 
 - One `WebSearchProvider` registered on `ctx.web` (id `web-search-router`). The router never receives or calls the seam itself — no provider-to-provider recursion.
 - Internal adapters throw failures from a closed vocabulary (`config`, `auth`, `quota`, `rate_limit`, `timeout`, `network`, `upstream`, `malformed`, `empty`); the router owns order, deadlines, retries, and health.
-- Caller cancellation is terminal: it stops the chain immediately and is never recorded as a backend failure.
+- Failure policy: one retry per backend, only for clearly transient failures (adapter-marked transport and 502/503/504 equivalents); auth/quota/rate-limit/malformed/empty/config/timeout failures are never retried — timeout falls back immediately. A 15 s overall budget covers attempts, retries, and retry delays; each attempt is capped at 5 s and clamped to the remaining budget; no work starts after the budget is exhausted; a structured `Retry-After` is honored as the retry delay but never allowed to exceed the deadline.
+- Caller cancellation is terminal: it stops the chain immediately (including mid-retry-delay) and is never recorded as a backend failure.
 - Chain exhaustion surfaces one sanitized failure ("no configured search backend succeeded"); the detailed ordered trail goes to the host logger only. No custom session-event types are ever written.
 - Zero DSH imports in the package (seam error codes ride the open-string `code` convention), so tests are fully hermetic.
 

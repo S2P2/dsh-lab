@@ -5,24 +5,35 @@
  * chain exhaustion as one sanitized model-facing error with the detailed
  * ordered trail going to the host logger only (spec #8).
  *
- * The walk owns attempt deadlines (minimal per-attempt timeout here; the
- * full 15 s overall budget + retry policy lands with #87 behind the same
- * `schedule`/`now` seams). No DSH imports: this module is the hermetic test
- * seam, constructed with fake adapters.
+ * Failure policy (ticket #87): one retry per backend for clearly transient
+ * failures only (adapter-marked retryable — transport failures and
+ * 502/503/504 equivalents — outside the never-retry set); a 15 s overall
+ * budget covers attempts, retries, and retry delays; each attempt is capped
+ * (5 s default) and clamped to the remaining budget; no new attempt or retry
+ * starts after the budget is exhausted; a provider-supplied `Retry-After` is
+ * honored as the retry delay but never allowed to exceed the deadline.
+ * Bounded adapter-internal protocol repair (e.g. a stale-session re-init
+ * inside one adapter.search call) is invisible here — it is one attempt.
+ *
+ * The walk owns deadlines via the injectable `schedule`/`now` seams; no DSH
+ * imports — this module is the hermetic test seam.
  * @module
  */
-import {
-  AdapterError,
-  SearchAbortedError,
-  ChainExhaustedError,
-} from './errors.js'
+import { AdapterError, SearchAbortedError, ChainExhaustedError } from './errors.js'
 import { isAbortLike } from './http.js'
+import {
+  DEFAULT_ATTEMPT_TIMEOUT_MS,
+  DEFAULT_OVERALL_TIMEOUT_MS,
+  MAX_RETRIES_PER_BACKEND,
+  isRetryable,
+  retryDelayMs,
+  clampAttemptTimeoutMs,
+} from './policy.js'
+
+export { DEFAULT_ATTEMPT_TIMEOUT_MS }
 
 /** Router provider id, selected by a profile's `web.searchProvider` pin. */
 export const ROUTER_PROVIDER_ID = 'web-search-router'
-
-/** Minimal per-attempt cap; #87 layers the overall budget and remaining-budget clamping on top. */
-export const DEFAULT_ATTEMPT_TIMEOUT_MS = 5_000
 
 /** Never-throw host logging (240xu pattern: emitters are best-effort). */
 function safeLog(logger, level, format, ...args) {
@@ -39,15 +50,22 @@ function safeLog(logger, level, format, ...args) {
  * impossible.
  */
 export class SearchRouter {
-  /** @param {object} options @param {object[]} [options.adapters] ordered adapter list
-   *  @param {number} [options.attemptTimeoutMs] per-attempt deadline
-   *  @param {object} [options.logger] host logger (trail on exhaustion)
-   *  @param {() => number} [options.now] injectable clock
-   *  @param {{setTimeout: typeof setTimeout, clearTimeout: typeof clearTimeout}} [options.schedule] injectable scheduler */
+  /**
+   * @param {object} options
+   * @param {object[]} [options.adapters] ordered adapter list
+   * @param {number} [options.attemptTimeoutMs] per-attempt deadline (default 5 s)
+   * @param {number} [options.overallTimeoutMs] whole-search budget (default 15 s)
+   * @param {{maxRetries?: number, baseMs?: number, jitterMs?: number, rand?: () => number}} [options.retry]
+   * @param {object} [options.logger] host logger (trail on exhaustion)
+   * @param {() => number} [options.now] injectable clock
+   * @param {{setTimeout: typeof setTimeout, clearTimeout: typeof clearTimeout}} [options.schedule] injectable scheduler
+   */
   constructor(options = {}) {
     const {
       adapters = [],
       attemptTimeoutMs = DEFAULT_ATTEMPT_TIMEOUT_MS,
+      overallTimeoutMs = DEFAULT_OVERALL_TIMEOUT_MS,
+      retry = {},
       logger,
       now = () => Date.now(),
       schedule = { setTimeout, clearTimeout },
@@ -55,6 +73,9 @@ export class SearchRouter {
     this.id = ROUTER_PROVIDER_ID
     this.#adapters = [...adapters]
     this.#attemptTimeoutMs = attemptTimeoutMs
+    this.#overallTimeoutMs = overallTimeoutMs
+    this.#maxRetries = retry.maxRetries ?? MAX_RETRIES_PER_BACKEND
+    this.#retryDelay = retry
     this.#logger = logger
     this.#now = now
     this.#schedule = schedule
@@ -62,6 +83,9 @@ export class SearchRouter {
 
   #adapters
   #attemptTimeoutMs
+  #overallTimeoutMs
+  #maxRetries
+  #retryDelay
   #logger
   #now
   #schedule
@@ -79,6 +103,7 @@ export class SearchRouter {
   /** @param {{query: string, maxResults?: number}} request @param {AbortSignal} [signal] */
   async search(request, signal) {
     if (signal?.aborted) throw new SearchAbortedError()
+    const deadlineAt = this.#now() + this.#overallTimeoutMs
     const trail = []
     for (const adapter of this.#adapters) {
       if (signal?.aborted) throw new SearchAbortedError()
@@ -93,61 +118,104 @@ export class SearchRouter {
         trail.push({ backend: adapter.id, outcome: 'skipped', reason: status?.reason ?? 'unavailable' })
         continue
       }
-      const result = await this.#attempt(adapter, request, signal, trail)
-      if (result !== undefined) {
-        safeLog(this.#logger, 'debug', 'web-search-router: served by %s after %dms', adapter.id, trail.at(-1)?.latencyMs)
-        return result
+      let budgetExhausted = false
+      for (let attempt = 0; ; attempt++) {
+        if (signal?.aborted) throw new SearchAbortedError()
+        const remainingMs = deadlineAt - this.#now()
+        if (remainingMs <= 0) {
+          trail.push({ backend: adapter.id, outcome: 'skipped', reason: 'overall deadline exhausted' })
+          budgetExhausted = true
+          break
+        }
+        const outcome = await this.#attempt(adapter, request, signal, clampAttemptTimeoutMs(this.#attemptTimeoutMs, remainingMs))
+        if (outcome.abortedCaller) {
+          safeLog(this.#logger, 'info', 'web-search-router: aborted by caller during %s', adapter.id)
+          throw new SearchAbortedError()
+        }
+        if (outcome.ok) {
+          trail.push({
+            backend: adapter.id,
+            outcome: 'served',
+            latencyMs: outcome.latencyMs,
+            retries: attempt,
+            at: this.#now(),
+          })
+          safeLog(this.#logger, 'debug', 'web-search-router: served by %s after %dms', adapter.id, outcome.latencyMs)
+          return outcome.result
+        }
+        const error = outcome.error
+        trail.push({
+          backend: adapter.id,
+          outcome: 'failed',
+          failureClass: error.failureClass,
+          ...(error.retryAfterMs !== undefined ? { retryAfterMs: error.retryAfterMs } : {}),
+          latencyMs: outcome.latencyMs,
+          retries: attempt,
+          at: this.#now(),
+          ...(error.message ? { message: error.message } : {}),
+        })
+        if (attempt >= this.#maxRetries || !isRetryable(error)) break
+        const delayMs = error.retryAfterMs !== undefined ? error.retryAfterMs : retryDelayMs(this.#retryDelay)
+        // The retry delay must leave budget for the retry attempt itself;
+        // a delay that no longer fits skips the retry (rogerdigital pattern).
+        if (delayMs > 0 && deadlineAt - this.#now() - delayMs <= 0) break
+        if (delayMs > 0) await this.#wait(delayMs, signal)
       }
-      if (signal?.aborted) throw new SearchAbortedError() // abort surfaced mid-attempt
+      if (budgetExhausted) break
     }
     safeLog(this.#logger, 'info', 'web-search-router: chain exhausted: %j', trail)
     throw new ChainExhaustedError(trail)
   }
 
   /**
-   * Run one adapter attempt under the per-attempt deadline. Returns the
-   * result on success, undefined after a classified failure (recorded in the
-   * trail), throws SearchAbortedError on caller cancellation. Caller abort
-   * is never recorded as a backend failure.
+   * Run one adapter attempt under a deadline-clamped attempt signal.
+   * Returns `{ok, result, latencyMs}` on success, `{abortedCaller: true}` when
+   * the caller cancelled (never a backend failure), or `{ok: false, error,
+   * latencyMs}` with the error already classified as an AdapterError.
    */
-  async #attempt(adapter, request, signal, trail) {
+  async #attempt(adapter, request, signal, attemptTimeoutMs) {
     const startedAt = this.#now()
     const controller = new AbortController()
-    const timer = this.#schedule.setTimeout(() => controller.abort(), this.#attemptTimeoutMs)
+    const timer = this.#schedule.setTimeout(() => controller.abort(), attemptTimeoutMs)
     let attemptSignal = controller.signal
     if (signal !== undefined) attemptSignal = AbortSignal.any([signal, controller.signal])
     try {
-      return await adapter.search(request, attemptSignal)
+      const result = await adapter.search(request, attemptSignal)
+      return { ok: true, result, latencyMs: this.#now() - startedAt }
     } catch (error) {
       if (isAbortLike(error)) {
-        if (signal?.aborted) {
-          safeLog(this.#logger, 'info', 'web-search-router: aborted by caller during %s', adapter.id)
-          throw new SearchAbortedError()
-        }
-        trail.push({
-          backend: adapter.id,
-          outcome: 'failed',
-          failureClass: 'timeout',
+        if (signal?.aborted) return { abortedCaller: true }
+        return {
+          ok: false,
           latencyMs: this.#now() - startedAt,
-          at: this.#now(),
-        })
-        return undefined
+          error: new AdapterError(`${adapter.id}: attempt timed out after ${attemptTimeoutMs}ms`, 'timeout'),
+        }
       }
-      const failureClass = error instanceof AdapterError ? error.failureClass : 'upstream'
-      trail.push({
-        backend: adapter.id,
-        outcome: 'failed',
-        failureClass,
-        ...(error instanceof AdapterError && error.retryAfterMs !== undefined
-          ? { retryAfterMs: error.retryAfterMs }
-          : {}),
+      return {
+        ok: false,
         latencyMs: this.#now() - startedAt,
-        at: this.#now(),
-        ...(error instanceof Error && error.message ? { message: error.message } : {}),
-      })
-      return undefined
+        error:
+          error instanceof AdapterError
+            ? error
+            : new AdapterError(`${adapter.id}: unexpected failure`, 'upstream', { cause: error }),
+      }
     } finally {
       this.#schedule.clearTimeout(timer)
     }
+  }
+
+  /** Abortable wait through the injected scheduler; caller abort wins mid-delay. */
+  #wait(delayMs, signal) {
+    return new Promise((resolve, reject) => {
+      const timer = this.#schedule.setTimeout(() => resolve(), delayMs)
+      const onAbort = () => {
+        this.#schedule.clearTimeout(timer)
+        reject(new SearchAbortedError())
+      }
+      if (signal !== undefined) {
+        if (signal.aborted) onAbort()
+        else signal.addEventListener('abort', onAbort, { once: true })
+      }
+    })
   }
 }
