@@ -6,6 +6,7 @@
  */
 import { createExaAdapter } from './exa.js'
 import { createTavilyAdapter } from './tavily.js'
+import { createCodexAdapter } from './codex.js'
 import { createDuckduckgoAdapter } from './duckduckgo.js'
 import { createZaiAdapter } from './zai.js'
 
@@ -42,7 +43,8 @@ export function createDefaultAdapters(deps = {}) {
   return [
     createExaAdapter(keyed),
     createTavilyAdapter(keyed),
-    createZaiAdapter(deps), // #90 searxng / #93 codex append adapters here in canonical order
-    createDuckduckgoAdapter(deps),
+    createCodexAdapter(deps), // wrapped dsh-codex-connect exports; module injected or dynamically imported
+    createZaiAdapter(deps),
+    createDuckduckgoAdapter(deps), // #90 searxng appends here in canonical order
   ]
 }

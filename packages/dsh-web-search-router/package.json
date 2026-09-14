@@ -36,11 +36,13 @@
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.2",
     "@deepseek-ai/dsh-web": "0.1.2-rc.1 || 0.1.5-alpha.1 || 0.1.5-rc.1 || 0.1.5-rc.2",
-    "@deepseek-ai/schemastery": "^3.18.2"
+    "@deepseek-ai/schemastery": "^3.18.2",
+    "dsh-codex-connect": "0.1.0-alpha.4.34"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/cordis": { "optional": true },
     "@deepseek-ai/dsh-web": { "optional": true },
-    "@deepseek-ai/schemastery": { "optional": true }
+    "@deepseek-ai/schemastery": { "optional": true },
+    "dsh-codex-connect": { "optional": true }
   }
 }

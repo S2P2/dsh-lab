@@ -16,7 +16,7 @@ The bundle patch inserts the plugin into the profile. Provider selection is id-b
     searchProvider: web-search-router
 ```
 
-> **Important:** while this router owns the search route, `dsh-codex-connect`'s `enableSearch` option must stay `false`. If switched on, that plugin takes over the profile's entire search route at runtime and this router silently stops serving `web_search`.
+> **Important:** while this router owns the search route, `dsh-codex-connect`'s `enableSearch` option must stay `false`. If switched on, that plugin takes over the profile's entire search route at runtime and this router silently stops serving `web_search`. The Router's Codex backend instead wraps `dsh-codex-connect`'s exported credential store and search provider as a library, and the exact tested version of that package is pinned as an (optional) peer dependency.
 
 ## Status
 
