@@ -30,6 +30,8 @@ export function apply(ctx, _config = {}, overrides = {}) {
   const router = new SearchRouter({
     adapters: createDefaultAdapters(overrides),
     ...(overrides.attemptTimeoutMs !== undefined ? { attemptTimeoutMs: overrides.attemptTimeoutMs } : {}),
+    ...(overrides.overallTimeoutMs !== undefined ? { overallTimeoutMs: overrides.overallTimeoutMs } : {}),
+    ...(overrides.retry !== undefined ? { retry: overrides.retry } : {}),
     ...(overrides.schedule !== undefined ? { schedule: overrides.schedule } : {}),
     ...(overrides.now !== undefined ? { now: overrides.now } : {}),
     ...(ctx?.logger !== undefined ? { logger: ctx.logger } : {}),
