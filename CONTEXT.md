@@ -76,6 +76,28 @@ _Avoid_: MCP quota, monthly cap (a Codex concept).
 Codex's calendar-month spend ceiling, beyond its 5-hour and weekly windows. GLM has no equivalent.
 _Avoid_: tools budget, weekly window.
 
+### Preset authoring
+
+**Session Preset**:
+The preset already locked to the running conversation. Authoring another preset never changes it.
+_Avoid_: current preset (ambiguous with the selected authoring target).
+
+**Target Preset**:
+The preset selected for inspection or authoring, independently of the Session Preset.
+_Avoid_: session preset, active preset.
+
+**Preset Draft**:
+A complete candidate directory tree for one Target Preset, retained separately from the saved preset until Apply. It includes preset-local skills and assets, not only composition YAML.
+_Avoid_: Draft (already means a proposed narrative answer in the Grilling context), patch, YAML draft.
+
+**Source Fingerprint**:
+The canonical whole-tree identity of the saved Target Preset from which a Preset Draft was opened.
+_Avoid_: file hash (the identity covers every file in the preset directory), Git revision (one possible history mechanism).
+
+**Stale Preset Draft**:
+A Preset Draft whose Target Preset no longer matches its Source Fingerprint.
+_Avoid_: invalid draft (the candidate may be valid; its saved base changed).
+
 ### The widget
 
 **Quota Bar**:

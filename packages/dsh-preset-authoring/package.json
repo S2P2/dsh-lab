@@ -1,0 +1,58 @@
+{
+  "name": "@s2p2/dsh-preset-authoring",
+  "version": "0.0.1",
+  "description": "Host-owned shared preset drafts for DSH preset authoring.",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./client": "./src/client.js",
+    "./domain": "./src/domain.js",
+    "./git": "./src/git.js",
+    "./preset-editor-model": "./src/preset-editor-model.js",
+    "./preset-yaml": "./src/preset-yaml.js",
+    "./presenter": "./src/presenter.js",
+    "./semantics": "./src/semantics.js",
+    "./studio-presenter": "./src/studio-presenter.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime"
+      ],
+      "platform": "web"
+    }
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "yaml": "^2.9.0"
+  },
+  "peerDependencies": {
+    "dsh-better-sidebar": "^0.18.0"
+  },
+  "peerDependenciesMeta": {
+    "dsh-better-sidebar": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.0.2",
+    "@deepseek-ai/cordis-plugin-loader": "1.0.3",
+    "@deepseek-ai/dsh-agent-presets": "0.1.2-rc.1",
+    "@deepseek-ai/dsh-cordis-host-runner": "0.1.2-rc.1",
+    "@deepseek-ai/dsh-session-projection": "0.1.2-rc.1",
+    "@deepseek-ai/dsh-system-prompt": "0.1.2-rc.1",
+    "@deepseek-ai/dsh-tool-cordis": "0.1.2-rc.1",
+    "@deepseek-ai/dsh-tools": "0.1.2-rc.1",
+    "@deepseek-ai/schemastery": "3.18.2"
+  },
+  "files": ["src", "test", "cordis.patch.yml", "README.md", "UPSTREAM.md"],
+  "keywords": ["dsh", "deepseek-harness", "plugin", "preset", "authoring"],
+  "license": "MIT"
+}
