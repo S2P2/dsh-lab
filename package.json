@@ -4,7 +4,9 @@
   "description": "DeepSeek Harness plugin lab: workflow extensions, grilling UI, quota widgets — things skills alone can't do.",
   "scripts": {
     "build": "pnpm -r --filter './packages/*' run build",
-    "test": "pnpm -r --filter './packages/*' run test",
+    "test": "pnpm -r --filter './packages/*' run test && node --test test/*.test.mjs",
+    "test:release-gate": "node --test test/dsh-release-gate.test.mjs",
+    "release:gate": "node scripts/dsh-release-gate.mjs",
     "changeset": "changeset",
     "version": "changeset version"
   },
