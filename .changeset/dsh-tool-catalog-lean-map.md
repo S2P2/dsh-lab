@@ -1,0 +1,5 @@
+---
+'@s2p2/dsh-tool-catalog-lean': minor
+---
+
+Curated description map for the full 23-tool stock set (#80 of spec #77, follows the #79 tracer): every tool from the captured `standard-lean` session now has a semantically faithful short-form description (tool-level plus parameter-level), with per-tool behavior-preservation checklists pinned in `src/map.js` and enforced by tests. Measured against the committed fixture, the catalog shrinks from 21,062 to 14,336 compact-serialized chars (−32%) and description prose from 14,977 to 8,279 chars (−45%; the five largest definitions −46…−57%). Property descriptions that merely restate what the schema confesses are curated to `""`; every non-description field and every non-curated path stays byte-identical (twin-walk plus strip-descriptions invariant tests). New map tests cover fixture-wide entry coverage, per-tool checklists, curated-path landing, and bounded compression (≥40% description chars, ≥25% catalog, above a >20% over-trim floor); measured before/after tables live in the README.
