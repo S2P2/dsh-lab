@@ -25,7 +25,7 @@
   name: '@deepseek-ai/dsh-persona'
   config:
     complete: true
-    prefix: >-
+    prefix: |-
       You are a coding agent powered by {{model}}, working in {{cwd}}.
       Inspect relevant context, make focused changes, verify outcomes, and report changed files.
 
@@ -208,3 +208,7 @@
   config:
     fetch: true
     searchTimeoutMs: 60000
+
+# Marks requested file outputs as openable deliverables in the Web UI.
+- id: present
+  name: '@deepseek-ai/dsh-tool-present'
