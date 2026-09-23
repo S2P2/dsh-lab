@@ -1,0 +1,11 @@
+{
+  "name": "@s2p2/dsh-preset-standard-lean",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}
