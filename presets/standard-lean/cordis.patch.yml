@@ -143,9 +143,11 @@
             disabled: true
           # Preset-local prompt surgery, not a tool: drops the deployment
           # sections a lean coding session does not need (harness source
-          # root, web GUI surface, deliverable link-formatting policy) and
-          # rewrites tool:edit down to its only rule the tool schema does
-          # not carry. Resolves relative to this bundle. See
+          # root, web GUI surface, deliverable link-formatting policy).
+          # Referenced by package subpath (like standard's
+          # dsh-tool-subagent-control/list-agents row): a relative './…'
+          # child name resolves against the profile config location, not
+          # this bundle, and fails to load. See
           # plugins/lean-prompt-sections.mjs and the watch list in README.md.
           - id: lean-prompt-sections
-            name: './plugins/lean-prompt-sections.mjs'
+            name: '@local/dsh-standard-lean-preset/plugins/lean-prompt-sections.mjs'
