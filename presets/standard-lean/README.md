@@ -1,57 +1,51 @@
 # Standard Lean preset
 
-A copy of the shipped `standard` coding-agent preset with the orchestration and planning surface trimmed off and the system prompt collapsed to a compact, complete persona.
+The shipped `standard` coding-agent preset edited by deletion: **plan mode, the workflow engine, and goals are removed**; everything else is copied verbatim from `@deepseek-ai/dsh-web-app`'s `presets/standard.patch.yml` for the installed DSH version.
 
-## Included capabilities
+## Format
+
+This directory is a **DSH bundle** (`package.json` + `cordis.patch.yml`), the preset format of the current DSH: a bundle whose Loader patch inserts one `@deepseek-ai/dsh-agent-preset` declaration row (`preset-standard-lean`). The previous generation of this preset (`agent.cordis.yml` + `preset.yml`, built against `@deepseek-ai/dsh-agent-presets` 0.1.5-rc.2) used the legacy user-preset directory format that this DSH version no longer reads; it was replaced wholesale. It also kept goals and dropped the disabled Ralph row — this rebuild follows the current exclusion set instead.
+
+## Included (identical to `standard`)
 
 - full coding toolset: shell (bash/pwsh), file read/write/edit, glob/grep search
-- background jobs, Skills catalog and loader, goals, todos
-- web search and fetch, plus openable file deliverables in the Web UI
-- subagent and subagent-fork delegation with list/send/interrupt controls
+- background jobs, Skills catalog and loader, todos, `ask_user_question`, web search/fetch, `present`
+- subagent and subagent-fork delegation with list/send/interrupt controls (codex/claude-code rows stay disabled, as in `standard`)
 - isolated long-session compaction, `/compact`, and tool-result pruning
 - workspace instructions (`AGENTS.md` chain) within a 64 KiB budget
-- a `complete: true` persona — the two-line prompt below is the entire system prompt section:
-
-  > You are a coding agent powered by {{model}}, working in {{cwd}}.<br>
-  > Inspect relevant context, make focused changes, verify outcomes, and report changed files.
+- the stock `standard` persona — the prompt is unchanged; only the tool surface is trimmed
 
 `complete: true` deliberately suppresses all other prompt sections, not just decorative prose. Tool schemas and runtime-context snapshots remain, but first-party guidance for shell failures, filesystem-tool preference, untrusted web content, background work, goals, and file references is omitted. This makes the preset prompt-lean rather than behavior-identical to Standard and means new upstream prompt sections do not take effect automatically.
 
 ## Deliberately excluded
 
-- plan mode and `exit_plan_mode`
-- the workflow engine and `workflow` tool
-- the Ralph loop
-- the `workflowEngine` isolate realm (no row left publishes a service, so the delegation group carries no realm)
-- optional native product subagents (`codex`, `claude-code` rows stay disabled, as in `standard`)
+- **plan** — the `planning` group (`dsh-plan-mode`): no plan-mode section, no `exit_plan_mode`
+- **workflow** — `workflow-ptc` (the `workflowEngine` provider) and `tool-workflow`: no `workflow` tool, and no `workflowEngine` isolate realm on the delegation group (no row left publishes it)
+- **goals** — `command-goal` (the `/goal` command) and `tool-goal`: no `create_goal`/`get_goal`/`update_goal`. The goal service and round driver stay host-plane and simply go unused by agents on this preset
+- Ralph stays `disabled: true` exactly as shipped — and cannot be flipped on here, because `tool-ralph` injects `workflowEngine`, whose provider this preset removes
 
-The suppression is text-only: tool schemas for everything retained still reach the model, and runtime-context snapshots (sandbox/approval policy) are unaffected — `complete` replaces prompt *sections*, not contexts.
+## Install
+
+Through the Web UI plugin manager, or:
+
+```sh
+dsh plugin --profile <profile> add /path/to/dsh-lab/presets/standard-lean
+```
+
+Then restart the Host and pick **Standard Lean** when starting a session.
 
 ## Upgrade drift
 
-This file was last synchronized with the shipped `standard` preset from `@deepseek-ai/dsh-agent-presets` **0.1.6-alpha.2**. It pins no package versions; rows resolve against whatever the deployment installs, and upstream row schemas can drift. It has already broken once across an upgrade (`dsh-persona` renamed `text` to `prefix`), and newer Standard rows must be reviewed rather than silently omitted.
+Rows resolve against whatever the deployment installs; upstream row schemas drift and mount validation fails loud. After upgrading DSH, re-diff and re-apply the deletions:
 
-After upgrading DSH:
-
-1. Locate `@deepseek-ai/dsh-agent-presets/presets/standard/agent.cordis.yml` under the active DSH deployment or Profile installation. Its location varies; do not assume this repository has the package in its own `node_modules`.
-2. Diff that file against this preset:
-
-   ```sh
-   SHIPPED_STANDARD=/absolute/path/to/@deepseek-ai/dsh-agent-presets/presets/standard/agent.cordis.yml
-   diff -u "$SHIPPED_STANDARD" presets/standard-lean/agent.cordis.yml
-   ```
-
-3. Confirm that every difference is intentional: the complete persona, removal of Plan, Workflow, disabled Ralph and `workflowEngine`, and retained disabled native-subagent templates. Incorporate unrelated upstream additions such as ordinary coding or delivery tools.
-4. Start a fresh Web session with **Standard Lean** and check its activation diagnostics. File comparison alone cannot verify imports, service dependencies, or isolation.
+```sh
+diff node_modules/@deepseek-ai/dsh-web-app/presets/standard.patch.yml presets/standard-lean/cordis.patch.yml
+```
 
 ## Dogfood verification
 
-Start a new session with the **Standard Lean** preset, then verify what only a real Agent session can prove:
+Start a new session with **Standard Lean**, then verify what only a real Agent session can prove:
 
-1. The preset activates without diagnostics.
-2. The system prompt is exactly the two-line persona above, while runtime sandbox/approval context and workspace instructions still appear.
-3. The tool catalog has no `exit_plan_mode`, `workflow`, or `ralph`.
-4. The catalog still includes file/search tools, web search/fetch, jobs, skills, goals, todos, delegation controls, and `present`.
-5. Create a small requested file and confirm `present` exposes it as an openable Web deliverable.
-6. Run an ordinary background `subagent` and confirm that it reports back.
-7. Confirm `/compact` remains available in a long session.
+1. The tool catalog has no `exit_plan_mode`, `workflow`, `create_goal`, `get_goal`, or `update_goal`.
+2. `/goal` is not offered as a command.
+3. Ordinary delegation still works: `subagent` runs in the background and reports back.
