@@ -7,7 +7,9 @@
 #
 # Everything else is copied verbatim from
 # node_modules/@deepseek-ai/dsh-web-app/presets/standard.patch.yml of the
-# installed DSH. After upgrading DSH, re-diff against that file and re-apply
+# installed DSH, with two preset-owned additions: the persona suffix lines
+# and the lean-prompt-sections plugin row (prompt surgery, see below).
+# After upgrading DSH, re-diff against that file and re-apply
 # the deletions; rows resolve against whatever the deployment installs, and
 # mount validation fails loud rather than degrading silently.
 - insert:
@@ -24,7 +26,14 @@
           - id: persona
             name: '@deepseek-ai/dsh-persona'
             config:
-              suffix: Your working directory is {{cwd}}.
+              # The suffix also carries the two-line replacement for the
+              # stripped ui:deliverable-file-references section: link file
+              # mentions, embed images. The rest of that block is upstream
+              # style policy a lean session drops.
+              suffix: >-
+                Your working directory is {{cwd}}. Link file mentions in
+                prose to their paths as [name](path); embed images as
+                ![description](path).
               prefix: You are a coding agent powered by the {{model}} model.
           - id: agent-instructions
             name: '@deepseek-ai/dsh-agent-instructions'
@@ -132,3 +141,11 @@
           - id: tool-plugin-manager
             name: '@deepseek-ai/dsh-plugin-manager/tools'
             disabled: true
+          # Preset-local prompt surgery, not a tool: drops the deployment
+          # sections a lean coding session does not need (harness source
+          # root, web GUI surface, deliverable link-formatting policy) and
+          # rewrites tool:edit down to its only rule the tool schema does
+          # not carry. Resolves relative to this bundle. See
+          # plugins/lean-prompt-sections.mjs and the watch list in README.md.
+          - id: lean-prompt-sections
+            name: './plugins/lean-prompt-sections.mjs'
