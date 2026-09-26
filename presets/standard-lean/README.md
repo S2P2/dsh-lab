@@ -46,7 +46,7 @@ dsh plugin --profile <profile> add /path/to/dsh-lab/presets/standard-lean
 
 Then restart the Host and pick **Standard Lean** when starting a session.
 
-**Edits do not hot-apply.** The loader materializes the bundle patch into the profile's tree (`profiles/<profile>/cordis.yml`) at install time; the pnpm link serves files but the Host never re-reads a changed `cordis.patch.yml` on boot. After changing anything in this directory, re-install (remove + add, or the plugin manager's refresh) and restart the Host — then verify via the probe below. A probe that shows your old configuration means the tree is stale, not that the composition is broken.
+**Edits do not hot-apply.** Two things keep a running Host on old preset content: the composition mounts at Host start, and a preset edited once in the Web UI gets a saved override in the profile's loader tree (`profiles/<profile>/cordis.yml`) that keeps beating this bundle's patch on every later boot. After changing anything in this directory: re-install the bundle (plugin manager remove + add), restart the Host, then verify via the probe below — a probe that shows old configuration means a stale override or a missed restart, not a broken composition.
 
 ## Upgrade drift
 
