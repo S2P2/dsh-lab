@@ -27,8 +27,6 @@ Upstream is actively deduplicating guidance: rc.1→rc.2 shrank the glob, web_se
 |---|---|---|
 | `harness:source`, `app:web-surface`, `ui:deliverable-file-references` | deployment-owned, not part of the dedup migration | keep dropping unless the deployment stops registering them |
 
-`complete: true` deliberately suppresses all other prompt sections, not just decorative prose. Tool schemas and runtime-context snapshots remain, but first-party guidance for shell failures, filesystem-tool preference, untrusted web content, background work, goals, and file references is omitted. This makes the preset prompt-lean rather than behavior-identical to Standard and means new upstream prompt sections do not take effect automatically.
-
 ## Deliberately excluded
 
 - **plan** — the `planning` group (`dsh-plan-mode`): no plan-mode section, no `exit_plan_mode`
@@ -72,8 +70,8 @@ Reference numbers:
 
 | Probe | Prompt chars | Desc chars | Input tokens @ `hi` |
 |---|---|---|---|
-| rc.1, 2026-09-23, pre-surgery | 6,554 | 13,868 | 6,368 |
-| rc.2 (`next`), post-upstream-dedup, stripper NOT yet loaded | 4,909 | 8,482 | 5,494 |
-| rc.2 + section surgery (expected) | ~2,370 | 8,482 | ~4,850 |
+| rc.1, 2026-09-26, pre-surgery | 6,554 | 13,868 | 6,368 |
+| rc.2 (`next`), post-upstream-dedup, stripper not yet loaded | 4,909 | 8,482 | 5,494 |
+| rc.2 + section surgery, verified (`6104713b`, 2026-09-26) | **2,366** | 8,482 | **4,975** |
 
-Record each new probe here.
+Net across the arc: −22% first-turn input tokens — upstream's own rc.1→rc.2 dedup contributed −874, this preset's section surgery −519. Record each new probe here.
