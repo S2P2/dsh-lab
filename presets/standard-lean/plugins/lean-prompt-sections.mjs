@@ -31,9 +31,15 @@ const DROP = new Set([
 ])
 
 export function apply(ctx) {
-  ctx.on('system-prompt/assemble', (assembly) => {
+  // The assemble event is an onion chain: every listener receives
+  // (assembly, context, next) and must return next()'s result, exactly like
+  // dsh-agent's model-selection listener. Returning undefined (e.g. by only
+  // mutating in place) breaks the chain and crashes downstream listeners
+  // with "Cannot read properties of undefined (reading 'variables')".
+  ctx.on('system-prompt/assemble', async (assembly, _context, next) => {
     assembly.sections = assembly.sections.filter(
       (section) => !DROP.has(section.name),
     )
+    return next()
   })
 }
