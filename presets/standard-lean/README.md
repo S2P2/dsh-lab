@@ -1,57 +1,77 @@
 # Standard Lean preset
 
-A copy of the shipped `standard` coding-agent preset with the orchestration and planning surface trimmed off and the system prompt collapsed to a compact, complete persona.
+The shipped `standard` coding-agent preset edited by deletion — **plan mode, the workflow engine, and goals are removed**, and the prompt is trimmed to rules the tool schemas do not already carry — everything else is copied verbatim from `@deepseek-ai/dsh-web-app`'s `presets/standard.patch.yml` for the installed DSH version, plus the two preset-owned additions noted below.
 
-## Included capabilities
+## Format
+
+This directory is a **DSH bundle** (`package.json` + `cordis.patch.yml`), the preset format of the current DSH: a bundle whose Loader patch inserts one `@deepseek-ai/dsh-agent-preset` declaration row (`preset-standard-lean`). The previous generation of this preset (`agent.cordis.yml` + `preset.yml`, built against `@deepseek-ai/dsh-agent-presets` 0.1.5-rc.2) used the legacy user-preset directory format that this DSH version no longer reads; it was replaced wholesale. It also kept goals and dropped the disabled Ralph row — this rebuild follows the current exclusion set instead.
+
+## Included (identical to `standard`)
 
 - full coding toolset: shell (bash/pwsh), file read/write/edit, glob/grep search
-- background jobs, Skills catalog and loader, goals, todos
-- web search and fetch, plus openable file deliverables in the Web UI
-- subagent and subagent-fork delegation with list/send/interrupt controls
+- background jobs, Skills catalog and loader, todos, `ask_user_question`, web search/fetch, `present`
+- subagent and subagent-fork delegation with list/send/interrupt controls (codex/claude-code rows stay disabled, as in `standard`)
 - isolated long-session compaction, `/compact`, and tool-result pruning
 - workspace instructions (`AGENTS.md` chain) within a 64 KiB budget
-- a `complete: true` persona — the two-line prompt below is the entire system prompt section:
 
-  > You are a coding agent powered by {{model}}, working in {{cwd}}.<br>
-  > Inspect relevant context, make focused changes, verify outcomes, and report changed files.
+## Prompt sections
 
-`complete: true` deliberately suppresses all other prompt sections, not just decorative prose. Tool schemas and runtime-context snapshots remain, but first-party guidance for shell failures, filesystem-tool preference, untrusted web content, background work, goals, and file references is omitted. This makes the preset prompt-lean rather than behavior-identical to Standard and means new upstream prompt sections do not take effect automatically.
+Upstream is actively deduplicating guidance: rc.1→rc.2 shrank the glob, web_search, web_fetch, subagent, write, **and edit** sections to their unique rules and cut tool-level description chars from 9,539 to 4,143. This preset finishes the job with a preset-local assemble listener (`plugins/lean-prompt-sections.mjs`) rather than a frozen `complete: true` persona, so upstream improvements to every other section keep arriving on upgrade:
+
+- **Dropped**: `harness:source` (DSH checkout root), `app:web-surface` (Web GUI / HMR / no-replacement-server rules), `ui:deliverable-file-references` (deliverable-card and link-formatting policy — a two-line replacement lives in the persona suffix).
+- **Kept untouched**: everything upstream maintains as a unique rule (`tool:read`, `tool:write`, `tool:edit`, `tool:glob`, `tool:grep`, `tool:jobs`, `tool:bash`, `tool:web_*`, `tool:subagent`, the `@`-path semantics from `dsh-file-reference`).
+
+**Watch list** — on every DSH upgrade, check these against the new sources and drop entries from the plugin when upstream stops shipping them:
+
+| Section | Upstream status (0.1.7-rc.2) | Action |
+|---|---|---|
+| `harness:source`, `app:web-surface`, `ui:deliverable-file-references` | deployment-owned, not part of the dedup migration | keep dropping unless the deployment stops registering them |
 
 ## Deliberately excluded
 
-- plan mode and `exit_plan_mode`
-- the workflow engine and `workflow` tool
-- the Ralph loop
-- the `workflowEngine` isolate realm (no row left publishes a service, so the delegation group carries no realm)
-- optional native product subagents (`codex`, `claude-code` rows stay disabled, as in `standard`)
+- **plan** — the `planning` group (`dsh-plan-mode`): no plan-mode section, no `exit_plan_mode`
+- **workflow** — `workflow-ptc` (the `workflowEngine` provider) and `tool-workflow`: no `workflow` tool, and no `workflowEngine` isolate realm on the delegation group (no row left publishes it)
+- **goals** — `command-goal` (the `/goal` command) and `tool-goal`: no `create_goal`/`get_goal`/`update_goal`. The goal service and round driver stay host-plane and simply go unused by agents on this preset
+- Ralph stays `disabled: true` exactly as shipped — and cannot be flipped on here, because `tool-ralph` injects `workflowEngine`, whose provider this preset removes
 
-The suppression is text-only: tool schemas for everything retained still reach the model, and runtime-context snapshots (sandbox/approval policy) are unaffected — `complete` replaces prompt *sections*, not contexts.
+## Install
+
+Through the Web UI plugin manager, or:
+
+```sh
+dsh plugin --profile <profile> add /path/to/dsh-lab/presets/standard-lean
+```
+
+Then restart the Host and pick **Standard Lean** when starting a session.
+
+**Edits do not hot-apply.** Two things keep a running Host on old preset content: the composition mounts at Host start, and a preset edited once in the Web UI gets a saved override in the profile's loader tree (`profiles/<profile>/cordis.yml`) that keeps beating this bundle's patch on every later boot. After changing anything in this directory: re-install the bundle (plugin manager remove + add), restart the Host, then verify via the probe below — a probe that shows old configuration means a stale override or a missed restart, not a broken composition.
 
 ## Upgrade drift
 
-This file was last synchronized with the shipped `standard` preset from `@deepseek-ai/dsh-agent-presets` **0.1.6-alpha.2**. It pins no package versions; rows resolve against whatever the deployment installs, and upstream row schemas can drift. It has already broken once across an upgrade (`dsh-persona` renamed `text` to `prefix`), and newer Standard rows must be reviewed rather than silently omitted.
+Rows resolve against whatever the deployment installs; upstream row schemas drift and mount validation fails loud. After upgrading DSH, re-diff and re-apply the deletions:
 
-After upgrading DSH:
+```sh
+diff node_modules/@deepseek-ai/dsh-web-app/presets/standard.patch.yml presets/standard-lean/cordis.patch.yml
+```
 
-1. Locate `@deepseek-ai/dsh-agent-presets/presets/standard/agent.cordis.yml` under the active DSH deployment or Profile installation. Its location varies; do not assume this repository has the package in its own `node_modules`.
-2. Diff that file against this preset:
+Expect exactly two preset-owned deltas beyond the deletions: the persona `suffix` lines and the `lean-prompt-sections` plugin row. Then walk the watch list above.
 
-   ```sh
-   SHIPPED_STANDARD=/absolute/path/to/@deepseek-ai/dsh-agent-presets/presets/standard/agent.cordis.yml
-   diff -u "$SHIPPED_STANDARD" presets/standard-lean/agent.cordis.yml
-   ```
+## Verifying a mount
 
-3. Confirm that every difference is intentional: the complete persona, removal of Plan, Workflow, disabled Ralph and `workflowEngine`, and retained disabled native-subagent templates. Incorporate unrelated upstream additions such as ordinary coding or delivery tools.
-4. Start a fresh Web session with **Standard Lean** and check its activation diagnostics. File comparison alone cannot verify imports, service dependencies, or isolation.
+Presets mount at Host start; edits to this directory do nothing until the Host restarts. After a restart, probe with a throwaway session and check what only a real Agent session proves:
 
-## Dogfood verification
+1. **Tool catalog** — ask `list all tools`: expect the 21 tools of `standard` minus `exit_plan_mode`, `workflow`, `create_goal`, `get_goal`, `update_goal`, `plugin_manager` (and no others).
+2. **Commands** — `/goal` is not offered; `/compact` still is.
+3. **Prompt** — export the session log and inspect the `system/message`: no checkout-root paragraph, no GUI/HMR paragraph, no deliverable-formatting block; the last line is the persona suffix (cwd + link-format lines).
+4. **Delegation** — `subagent` still runs in the background and reports back.
+5. **Cost baseline** — from the exported log's `request/header`: description chars and the input-token count of the first turn.
 
-Start a new session with the **Standard Lean** preset, then verify what only a real Agent session can prove:
+Reference numbers:
 
-1. The preset activates without diagnostics.
-2. The system prompt is exactly the two-line persona above, while runtime sandbox/approval context and workspace instructions still appear.
-3. The tool catalog has no `exit_plan_mode`, `workflow`, or `ralph`.
-4. The catalog still includes file/search tools, web search/fetch, jobs, skills, goals, todos, delegation controls, and `present`.
-5. Create a small requested file and confirm `present` exposes it as an openable Web deliverable.
-6. Run an ordinary background `subagent` and confirm that it reports back.
-7. Confirm `/compact` remains available in a long session.
+| Probe | Prompt chars | Desc chars | Input tokens @ `hi` |
+|---|---|---|---|
+| rc.1, 2026-09-26, pre-surgery | 6,554 | 13,868 | 6,368 |
+| rc.2 (`next`), post-upstream-dedup, stripper not yet loaded | 4,909 | 8,482 | 5,494 |
+| rc.2 + section surgery, verified (`6104713b`, 2026-09-26) | **2,366** | 8,482 | **4,975** |
+
+Net across the arc: −22% first-turn input tokens — upstream's own rc.1→rc.2 dedup contributed −874, this preset's section surgery −519. Record each new probe here.
